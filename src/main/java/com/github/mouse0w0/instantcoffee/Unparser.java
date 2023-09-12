@@ -393,10 +393,10 @@ public class Unparser {
     private void unparseTryCatchBlocks(List<TryCatchBlock> tryCatchBlocks, PrintWriter pw) {
         for (TryCatchBlock tryCatchBlock : tryCatchBlocks) {
             pw.append(INDENT3).append("try");
-            pw.append(tryCatchBlock.start);
-            pw.append(tryCatchBlock.end);
-            pw.append(tryCatchBlock.handler);
-            pw.append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
+            pw.append(" ").append(tryCatchBlock.start);
+            pw.append(" ").append(tryCatchBlock.end);
+            pw.append(" ").append(tryCatchBlock.handler);
+            pw.append(" ").append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
             pw.println();
         }
     }
