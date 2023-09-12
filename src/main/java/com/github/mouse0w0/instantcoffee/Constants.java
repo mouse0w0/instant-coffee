@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Constants implements Opcodes {
+    public static final String[] EMPTY_STRING_ARRAY = {};
+
     private static final Map<Integer, String> opcodeToName = new HashMap<>();
     private static final Map<String, Integer> nameToOpcode = new HashMap<>();
 

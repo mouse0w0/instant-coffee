@@ -12,8 +12,6 @@ import java.util.*;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Compiler {
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
     private static final String OBJECT = "java/lang/Object";
     private static final String DEPRECATED = "java/lang/Deprecated";
 
@@ -414,11 +412,11 @@ public class Compiler {
         } else {
             int[] keys = new int[keyLabelMapSize];
             Label[] labels = new Label[keyLabelMapSize];
-            int offset = 0;
+            int i = 0;
             for (Map.Entry<Integer, Label> keyLabel : keyLabelMap.entrySet()) {
-                keys[offset] = keyLabel.getKey();
-                labels[offset] = keyLabel.getValue();
-                offset++;
+                keys[i] = keyLabel.getKey();
+                labels[i] = keyLabel.getValue();
+                i++;
             }
             mv.visitLookupSwitchInsn(dflt, keys, labels);
         }

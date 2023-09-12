@@ -7,11 +7,12 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import java.io.*;
 
 public class Utils {
+    public static byte[] compile(String s) {
+        return new Compiler().compile(new Parser(new TokenStream(new Scanner(new StringReader(s)))).parseClassDeclaration()).toByteArray();
+    }
+
     public static String decompile(Class<?> clazz) {
-        String classQualifiedName = clazz.getName();
-        int index = classQualifiedName.lastIndexOf('.');
-        String className = index != -1 ? classQualifiedName.substring(index + 1) : classQualifiedName;
-        try (InputStream input = clazz.getResourceAsStream(className + ".class")) {
+        try (InputStream input = openStream(clazz)) {
             StringWriter sw = new StringWriter();
             Unparser.unparse(Decompiler.decompile(new ClassReader(input)), sw);
             return sw.toString();
@@ -26,13 +27,26 @@ public class Utils {
         return sw.toString();
     }
 
+    public static String textify(Class<?> clazz) {
+        try (InputStream inputStream = openStream(clazz)) {
+            StringWriter sw = new StringWriter();
+            new ClassReader(inputStream).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
+            return sw.toString();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage(), e);
+        }
+    }
+
     public static String textify(byte[] bytes) {
         StringWriter sw = new StringWriter();
         new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
         return sw.toString();
     }
 
-    public static byte[] compile(String s) {
-        return new Compiler().compile(new Parser(new TokenStream(new Scanner("<unknown>", new StringReader(s)))).parseClassDeclaration()).toByteArray();
+    private static InputStream openStream(Class<?> clazz) {
+        String classQualifiedName = clazz.getName();
+        int index = classQualifiedName.lastIndexOf('.');
+        String className = index != -1 ? classQualifiedName.substring(index + 1) : classQualifiedName;
+        return clazz.getResourceAsStream(className + ".class");
     }
 }

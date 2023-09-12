@@ -16,8 +16,6 @@ import java.util.function.Consumer;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Decompiler {
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
     public static ClassDeclaration decompile(ClassReader cr) {
         return new Decompiler().decompileClass(cr);
     }

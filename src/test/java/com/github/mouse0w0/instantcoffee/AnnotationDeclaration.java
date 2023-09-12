@@ -23,7 +23,7 @@ public @interface AnnotationDeclaration {
 
     Anno anno() default @Anno(111);
 
-    Class<?> clazz();
+    Class<?> clazz() default Object.class;
 
     Class<?>[] clazzArray();
 

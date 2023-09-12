@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final String[] MODIFIERS = {
             "public", // 0x0001
             "private", // 0x0002
@@ -220,7 +219,18 @@ public class Parser {
     }
 
     private void parseMethodBody(MethodDeclaration md) {
-        if (!peekRead("{")) return;
+        boolean isAbstractOrNative = hasModifier(md.modifiers, "abstract", "native");
+        if (!peek("{")) {
+            if (isAbstractOrNative) {
+                return;
+            }
+            throw new CompileException("Method must have a body", location());
+        }
+        if (isAbstractOrNative) {
+            throw new CompileException("Abstract or native method must not have a body", location());
+        }
+
+        read();
         while (!peekRead("}")) {
             Location location = location();
             String insn = parseIdentifier();
@@ -570,7 +580,7 @@ public class Parser {
             read();
             result.add(parseIdentifier());
         }
-        return result.toArray(EMPTY_STRING_ARRAY);
+        return result.toArray(Constants.EMPTY_STRING_ARRAY);
     }
 
     private TypeParameter[] parseTypeParameters() {
@@ -776,14 +786,13 @@ public class Parser {
             return parseLiteral();
         }
 
-        if (peek(TokenType.IDENTIFIER)) {
-            String[] identifiers = parseQualifiedIdentifier();
+        if (peekRead("void")) {
             if (peek(".") && peek2("class")) {
                 read();
                 read();
-                return new ClassLiteral(location, new ReferenceType(location, identifiers));
+                return new ClassLiteral(location, new PrimitiveType(location, Primitive.VOID));
             }
-            return new AmbiguousName(location, identifiers);
+            throw new CompileException("Unexpected token \"void\"", location);
         }
 
         if (peek(PRIMITIVES) != -1) {
@@ -796,13 +805,14 @@ public class Parser {
             throw new CompileException("Unexpected token", location);
         }
 
-        if (peekRead("void")) {
+        if (peek(TokenType.IDENTIFIER)) {
+            String[] identifiers = parseQualifiedIdentifier();
             if (peek(".") && peek2("class")) {
                 read();
                 read();
-                return new ClassLiteral(location, new PrimitiveType(location, Primitive.VOID));
+                return new ClassLiteral(location, new ReferenceType(location, identifiers));
             }
-            throw new CompileException("Unexpected token \"void\"", location);
+            return new AmbiguousName(location, identifiers);
         }
 
         throw new CompileException("Unexpected token \"" + read().getText() + "\"", location);
@@ -842,6 +852,17 @@ public class Parser {
         for (Modifier modifier : modifiers) {
             if (modifier.keyword.equals(keyword)) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasModifier(Modifier[] modifiers, String... keywords) {
+        for (Modifier modifier : modifiers) {
+            for (String keyword : keywords) {
+                if (modifier.keyword.equals(keyword)) {
+                    return true;
+                }
             }
         }
         return false;

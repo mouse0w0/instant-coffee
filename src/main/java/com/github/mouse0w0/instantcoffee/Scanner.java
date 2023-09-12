@@ -6,8 +6,8 @@ import java.io.Reader;
 public class Scanner {
     private static final int EOF = -1;
 
-    private final String fileName;
     private final Reader in;
+    private final String fileName;
 
     private int nextCharLineNumber = 1;
     private int nextCharColumnNumber = 0;
@@ -18,9 +18,13 @@ public class Scanner {
 
     private final StringBuilder sb = new StringBuilder();
 
-    public Scanner(String fileName, Reader in) {
-        this.fileName = fileName;
+    public Scanner(Reader in) {
+        this(in, "<unknown>");
+    }
+
+    public Scanner(Reader in, String fileName) {
         this.in = in;
+        this.fileName = fileName;
     }
 
     public Token produce() {
