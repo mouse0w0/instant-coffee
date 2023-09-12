@@ -6,11 +6,13 @@ public class InnerClassDeclaration extends Located {
     public static final InnerClassDeclaration[] EMPTY_ARRAY = {};
 
     public Modifier[] modifiers;
-    public String[] identifiers;
+    public String[] outerName;
+    public String innerName;
 
-    public InnerClassDeclaration(Location location, Modifier[] modifiers, String[] identifiers) {
+    public InnerClassDeclaration(Location location, Modifier[] modifiers, String[] outerName, String innerName) {
         super(location);
         this.modifiers = modifiers;
-        this.identifiers = identifiers;
+        this.outerName = outerName;
+        this.innerName = innerName;
     }
 }

@@ -1,6 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
 import com.github.mouse0w0.instantcoffee.model.*;
+import com.github.mouse0w0.instantcoffee.model.insn.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ public class Parser {
             "abstract", // 0x0400
             "strict", // 0x0800
             "synthetic", // 0x1000
-//            "@interface", // 0x2000
+            //            "@interface", // 0x2000
             "enum", // 0x4000
             "mandated", // 0x8000
             "module", // 0x8000
@@ -63,33 +64,69 @@ public class Parser {
     private void parseClassBody(ClassDeclaration cd) {
         read("{");
         while (!peekRead("}")) {
-            if (peek("source")) {
-                cd.source = parseSourceDeclaration();
-            }
-
-            Annotation[] annotations = parseAnnotations();
-            Modifier[] modifiers = parseModifiers();
-            if (peek("innerclass")) {
-                if (annotations.length != 0) {
-                    throw new CompileException("Inner class cannot be annotated", location());
-                }
-                cd.innerClasses.add(parseInnerClassDeclaration(modifiers));
-            }
-
-            TypeParameter[] typeParameters = parseTypeParameters();
-            Type type = parseType();
-            Location location = location();
-            String name = read(TokenType.IDENTIFIER).getText();
-            if (peek("(")) {
-                cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, type, name));
-            }
-
-            if (typeParameters != null) {
-                throw new CompileException("Type parameters not allowed on field declaration", location);
-            }
-            cd.fields.add(parseFieldDeclaration(location, annotations, modifiers, type, name));
+            parseClassMember(cd);
         }
-        read("}");
+    }
+
+    private void parseClassMember(ClassDeclaration cd) {
+        if (peekRead("version")) {
+            cd.version = parseIntegerLiteral();
+            return;
+        }
+
+        if (peek("source")) {
+            cd.source = parseSourceDeclaration();
+            return;
+        }
+
+        Annotation[] annotations = parseAnnotations();
+        Modifier[] modifiers = parseModifiers();
+        if (peek("innerclass")) {
+            if (annotations.length != 0) {
+                throw new CompileException("Inner class cannot be annotated", location());
+            }
+            cd.innerClasses.add(parseInnerClassDeclaration(modifiers));
+            return;
+        }
+
+        if (peek("{") && modifiers.length == 1 && "static".equals(modifiers[0].keyword)) {
+            cd.methods.add(parseInitializerDeclaration(location(), annotations, modifiers));
+            return;
+        }
+
+        TypeParameter[] typeParameters = parseTypeParameters();
+
+        if (peek("(") &&
+                typeParameters != null &&
+                typeParameters.length == 1 &&
+                "init".equals(typeParameters[0].name) &&
+                typeParameters[0].bounds.length == 0) {
+            Location location = location();
+            Type returnType = new PrimitiveType(location, Primitive.VOID);
+            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, "<init>"));
+            return;
+        }
+
+        if (peek("void")) {
+            Type returnType = parseVoid();
+            Location location = location();
+            String name = parseIdentifier();
+            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, name));
+            return;
+        }
+
+        Type returnType = parseTypeWithTypeAuguments();
+        Location location = location();
+        String name = parseIdentifier();
+        if (peek("(")) {
+            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, name));
+            return;
+        }
+
+        if (typeParameters != null) {
+            throw new CompileException("Type parameters not allowed on field declaration", location);
+        }
+        cd.fields.add(parseFieldDeclaration(location, annotations, modifiers, returnType, name));
     }
 
     private SourceDeclaration parseSourceDeclaration() {
@@ -101,28 +138,28 @@ public class Parser {
     private InnerClassDeclaration parseInnerClassDeclaration(Modifier[] modifiers) {
         Location location = location();
         read("innerclass");
-        return new InnerClassDeclaration(location, modifiers, parseQualifiedIdentifier());
+        return new InnerClassDeclaration(location, modifiers, parseQualifiedIdentifier(), parseIdentifier());
     }
 
     private FieldDeclaration parseFieldDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type type, String name) {
         return new FieldDeclaration(location, annotations, modifiers, type, name, peekRead("=") ? parseValue() : null);
     }
 
+    private MethodDeclaration parseInitializerDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers) {
+        MethodDeclaration methodDeclaration = new MethodDeclaration(
+                location,
+                annotations,
+                modifiers,
+                TypeParameter.EMPTY_ARRAY,
+                new PrimitiveType(location, Primitive.VOID),
+                "<clinit>",
+                Type.EMPTY_ARRAY,
+                ReferenceType.EMPTY_ARRAY);
+        parseMethodBody(methodDeclaration);
+        return methodDeclaration;
+    }
+
     private MethodDeclaration parseMethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name) {
-        read("(");
-        List<Type> parameterTypes = new ArrayList<>();
-        do {
-            parameterTypes.add(parseType());
-        } while (peekRead(","));
-        read(")");
-
-        List<ReferenceType> exceptionTypes = new ArrayList<>();
-        if (peekRead("throws")) {
-            do {
-                exceptionTypes.add(parseReferenceType());
-            } while (peekRead(","));
-        }
-
         MethodDeclaration methodDeclaration = new MethodDeclaration(
                 location,
                 annotations,
@@ -130,17 +167,271 @@ public class Parser {
                 typeParameters,
                 returnType,
                 name,
-                parameterTypes.toArray(Type.EMPTY_ARRAY),
-                exceptionTypes.toArray(ReferenceType.EMPTY_ARRAY));
+                parseMethodParameterTypes(),
+                parseMethodExceptionTypes());
         parseMethodBody(methodDeclaration);
         return methodDeclaration;
     }
 
-    private void parseMethodBody(MethodDeclaration md) {
-        read("{");
-        while (!peekRead("}")) {
-
+    private Type[] parseMethodParameterTypes() {
+        read("(");
+        if (peekRead(")")) {
+            return Type.EMPTY_ARRAY;
         }
+        List<Type> parameterTypes = new ArrayList<>();
+        do {
+            parameterTypes.add(parseTypeWithTypeAuguments());
+        } while (peekRead(","));
+        read(")");
+        return parameterTypes.toArray(Type.EMPTY_ARRAY);
+    }
+
+    private ReferenceType[] parseMethodExceptionTypes() {
+        List<ReferenceType> exceptionTypes = new ArrayList<>();
+        if (peekRead("throws")) {
+            do {
+                exceptionTypes.add(parseReferenceTypeWithTypeArguments());
+            } while (peekRead(","));
+        }
+        return exceptionTypes.toArray(ReferenceType.EMPTY_ARRAY);
+    }
+
+    private void parseMethodBody(MethodDeclaration md) {
+        if (!peekRead("{")) return;
+        while (!peekRead("}")) {
+            Location location = location();
+            String insn = parseIdentifier();
+
+            if (peekRead(":")) {
+                md.instructions.add(new LabelInsn(location, insn));
+                continue;
+            }
+
+            int opcode = Constants.nameToOpcode(insn);
+            switch (opcode) {
+                case Constants.NOP:
+                case Constants.ACONST_NULL:
+                case Constants.ICONST_M1:
+                case Constants.ICONST_0:
+                case Constants.ICONST_1:
+                case Constants.ICONST_2:
+                case Constants.ICONST_3:
+                case Constants.ICONST_4:
+                case Constants.ICONST_5:
+                case Constants.LCONST_0:
+                case Constants.LCONST_1:
+                case Constants.FCONST_0:
+                case Constants.FCONST_1:
+                case Constants.FCONST_2:
+                case Constants.DCONST_0:
+                case Constants.DCONST_1:
+                case Constants.IALOAD:
+                case Constants.LALOAD:
+                case Constants.FALOAD:
+                case Constants.DALOAD:
+                case Constants.AALOAD:
+                case Constants.BALOAD:
+                case Constants.CALOAD:
+                case Constants.SALOAD:
+                case Constants.IASTORE:
+                case Constants.LASTORE:
+                case Constants.FASTORE:
+                case Constants.DASTORE:
+                case Constants.AASTORE:
+                case Constants.BASTORE:
+                case Constants.CASTORE:
+                case Constants.SASTORE:
+                case Constants.POP:
+                case Constants.POP2:
+                case Constants.DUP:
+                case Constants.DUP_X1:
+                case Constants.DUP_X2:
+                case Constants.DUP2:
+                case Constants.DUP2_X1:
+                case Constants.DUP2_X2:
+                case Constants.SWAP:
+                case Constants.IADD:
+                case Constants.LADD:
+                case Constants.FADD:
+                case Constants.DADD:
+                case Constants.ISUB:
+                case Constants.LSUB:
+                case Constants.FSUB:
+                case Constants.DSUB:
+                case Constants.IMUL:
+                case Constants.LMUL:
+                case Constants.FMUL:
+                case Constants.DMUL:
+                case Constants.IDIV:
+                case Constants.LDIV:
+                case Constants.FDIV:
+                case Constants.DDIV:
+                case Constants.IREM:
+                case Constants.LREM:
+                case Constants.FREM:
+                case Constants.DREM:
+                case Constants.INEG:
+                case Constants.LNEG:
+                case Constants.FNEG:
+                case Constants.DNEG:
+                case Constants.ISHL:
+                case Constants.LSHL:
+                case Constants.ISHR:
+                case Constants.LSHR:
+                case Constants.IUSHR:
+                case Constants.LUSHR:
+                case Constants.IAND:
+                case Constants.LAND:
+                case Constants.IOR:
+                case Constants.LOR:
+                case Constants.IXOR:
+                case Constants.LXOR:
+                case Constants.I2L:
+                case Constants.I2F:
+                case Constants.I2D:
+                case Constants.L2I:
+                case Constants.L2F:
+                case Constants.L2D:
+                case Constants.F2I:
+                case Constants.F2L:
+                case Constants.F2D:
+                case Constants.D2I:
+                case Constants.D2L:
+                case Constants.D2F:
+                case Constants.I2B:
+                case Constants.I2C:
+                case Constants.I2S:
+                case Constants.LCMP:
+                case Constants.FCMPL:
+                case Constants.FCMPG:
+                case Constants.DCMPL:
+                case Constants.DCMPG:
+                case Constants.IRETURN:
+                case Constants.LRETURN:
+                case Constants.FRETURN:
+                case Constants.DRETURN:
+                case Constants.ARETURN:
+                case Constants.RETURN:
+                case Constants.ARRAYLENGTH:
+                case Constants.ATHROW:
+                case Constants.MONITORENTER:
+                case Constants.MONITOREXIT:
+                    md.instructions.add(new Insn(location, insn));
+                    break;
+                case Constants.IFEQ:
+                case Constants.IFNE:
+                case Constants.IFLT:
+                case Constants.IFGE:
+                case Constants.IFGT:
+                case Constants.IFLE:
+                case Constants.IF_ICMPEQ:
+                case Constants.IF_ICMPNE:
+                case Constants.IF_ICMPLT:
+                case Constants.IF_ICMPGE:
+                case Constants.IF_ICMPGT:
+                case Constants.IF_ICMPLE:
+                case Constants.IF_ACMPEQ:
+                case Constants.IF_ACMPNE:
+                case Constants.GOTO:
+                case Constants.JSR:
+                case Constants.IFNULL:
+                case Constants.IFNONNULL:
+                    md.instructions.add(new JumpInsn(location, insn, parseIdentifier()));
+                    break;
+                case Constants.TABLESWITCH:
+                case Constants.LOOKUPSWITCH:
+                case Constants.SWITCH: {
+                    List<SwitchCase> cases = new ArrayList<>();
+                    String dflt = null;
+                    read("{");
+                    while (!peekRead("}")) {
+                        if (peek(TokenType.INTEGER_LITERAL)) {
+                            cases.add(parseSwitchCase());
+                        } else if (peek("default")) {
+                            Token t = read();
+                            if (dflt != null) {
+                                throw new CompileException("Duplicate \"default\" label", t.getLocation());
+                            }
+                            read(":");
+                            dflt = parseIdentifier();
+                        } else {
+                            throw new CompileException("integer literal or \"default\" expected", location());
+                        }
+                    }
+                    md.instructions.add(new SwitchInsn(location, cases.toArray(SwitchCase.EMPTY_ARRAY), dflt));
+                    break;
+                }
+                case Constants.ILOAD:
+                case Constants.LLOAD:
+                case Constants.FLOAD:
+                case Constants.DLOAD:
+                case Constants.ALOAD:
+                case Constants.ISTORE:
+                case Constants.LSTORE:
+                case Constants.FSTORE:
+                case Constants.DSTORE:
+                case Constants.ASTORE:
+                case Constants.RET:
+                    md.instructions.add(new VarInsn(location, insn, parseIntegerLiteral()));
+                    break;
+                case Constants.BIPUSH:
+                case Constants.SIPUSH:
+                case Constants.NEWARRAY: // todo: newarray type
+                    md.instructions.add(new IntInsn(location, insn, parseIntegerLiteral()));
+                    break;
+                case Constants.LDC:
+                    md.instructions.add(new LdcInsn(location, parseValue()));
+                    break;
+                case Constants.GETSTATIC:
+                case Constants.PUTSTATIC:
+                case Constants.GETFIELD:
+                case Constants.PUTFIELD:
+                    md.instructions.add(new FieldInsn(location, insn, parseType(), parseIdentifier(), parseType()));
+                    break;
+                case Constants.INVOKEVIRTUAL:
+                case Constants.INVOKESPECIAL:
+                case Constants.INVOKESTATIC:
+                case Constants.INVOKEINTERFACE:
+                case Constants.INVOKEVIRTUALINTERFACE:
+                case Constants.INVOKESPECIALINTERFACE:
+                case Constants.INVOKESTATICINTERFACE:
+                    md.instructions.add(new MethodInsn(location, insn, parseType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseType()));
+                    break;
+                case Constants.INVOKEDYNAMIC:
+                    throw new UnsupportedOperationException("invokedynamic");
+                case Constants.NEW:
+                case Constants.ANEWARRAY:
+                case Constants.CHECKCAST:
+                case Constants.INSTANCEOF:
+                    md.instructions.add(new TypeInsn(location, insn, parseType()));
+                    break;
+                case Constants.IINC:
+                    md.instructions.add(new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral()));
+                    break;
+                case Constants.MULTIANEWARRAY:
+                    md.instructions.add(new MultiANewArrayInsn(location, parseType(), parseIntegerLiteral()));
+                    break;
+                case Constants.LINE_NUMBER:
+                    md.instructions.add(new LineNumberInsn(location, parseIntegerLiteral(), parseIdentifier()));
+                    break;
+                case Constants.LOCAL_VARIABLE:
+                    md.localVariables.add(new LocalVariable(location, parseIdentifier(), parseType(), parseIdentifier(), parseIdentifier(), parseIntegerLiteral()));
+                    break;
+                case Constants.TRY_CATCH_BLOCK:
+                    md.tryCatchBlocks.add(new TryCatchBlock(location, parseIdentifier(), parseIdentifier(), parseIdentifier(), parseReferenceTypeWithTypeArguments()));
+                    break;
+                default:
+                    throw new CompileException("Unknown opcode: " + insn, location);
+            }
+        }
+    }
+
+    private SwitchCase parseSwitchCase() {
+        Location location = location();
+        IntegerLiteral key = parseIntegerLiteral();
+        read(":");
+        String label = parseIdentifier();
+        return new SwitchCase(location, key, label);
     }
 
     private Annotation[] parseAnnotations() {
@@ -185,7 +476,7 @@ public class Parser {
 
     private AnnotationValuePair parseAnnotationValuePair() {
         Location location = location();
-        String key = read(TokenType.IDENTIFIER).getText();
+        String key = parseIdentifier();
         read("=");
         return new AnnotationValuePair(location, key, parseAnnotationValue());
     }
@@ -232,12 +523,29 @@ public class Parser {
         return new Modifier(location, MODIFIERS[index]);
     }
 
+    private String parseIdentifier() {
+        return read(TokenType.IDENTIFIER).getText();
+    }
+
+    private String parseIdentifierOrInit() {
+        Location location = location();
+        if (peekRead("<")) {
+            if (peek("init") && peek2(">")) {
+                read();
+                read();
+                return "<init>";
+            }
+            throw new CompileException("Unexpected token \"<\"", location);
+        }
+        return parseIdentifier();
+    }
+
     private String[] parseQualifiedIdentifier() {
         List<String> result = new ArrayList<>();
-        result.add(read(TokenType.IDENTIFIER).getText());
+        result.add(parseIdentifier());
         while (peek(".") && peek2(TokenType.IDENTIFIER)) {
             read();
-            result.add(read(TokenType.IDENTIFIER).getText());
+            result.add(parseIdentifier());
         }
         return result.toArray(EMPTY_STRING_ARRAY);
     }
@@ -246,37 +554,37 @@ public class Parser {
         if (!peekRead("<")) {
             return null;
         }
-        if (peekRead(">")) {
-            return TypeParameter.EMPTY_ARRAY;
-        }
         List<TypeParameter> result = new ArrayList<>();
         do {
             result.add(parseTypeParameter());
-        } while (peekRead(","));
-        read(">");
+        } while (read(",", ">") == 0);
         return result.toArray(TypeParameter.EMPTY_ARRAY);
     }
 
     private TypeParameter parseTypeParameter() {
         Location location = location();
-        String name = read(TokenType.IDENTIFIER).getText();
+        String name = parseIdentifier();
         if (peekRead("extends")) {
             List<ReferenceType> bounds = new ArrayList<>();
-            bounds.add(parseReferenceType());
+            bounds.add(parseReferenceTypeWithTypeArguments());
             while (peekRead("&")) {
-                bounds.add(parseReferenceType());
+                bounds.add(parseReferenceTypeWithTypeArguments());
             }
             return new TypeParameter(location, name, bounds.toArray(ReferenceType.EMPTY_ARRAY));
         } else if (peekRead("implements")) {
             List<ReferenceType> bounds = new ArrayList<>();
             bounds.add(null);
-            bounds.add(parseReferenceType());
+            bounds.add(parseReferenceTypeWithTypeArguments());
             while (peekRead("&")) {
-                bounds.add(parseReferenceType());
+                bounds.add(parseReferenceTypeWithTypeArguments());
             }
             return new TypeParameter(location, name, bounds.toArray(ReferenceType.EMPTY_ARRAY));
         }
         return new TypeParameter(location, name);
+    }
+
+    private Type parseVoid() {
+        return new PrimitiveType(read("void").getLocation(), Primitive.VOID);
     }
 
     private Type parseType() {
@@ -321,6 +629,51 @@ public class Parser {
     }
 
     private ReferenceType parseReferenceType() {
+        return new ReferenceType(location(), parseQualifiedIdentifier(), TypeArgument.EMPTY_ARRAY);
+    }
+
+    private Type parseTypeWithTypeAuguments() {
+        Location location = location();
+        Type type;
+        switch (peekRead(PRIMITIVES)) {
+            case 0:
+                type = new PrimitiveType(location, Primitive.BOOLEAN);
+                break;
+            case 1:
+                type = new PrimitiveType(location, Primitive.CHAR);
+                break;
+            case 2:
+                type = new PrimitiveType(location, Primitive.BYTE);
+                break;
+            case 3:
+                type = new PrimitiveType(location, Primitive.SHORT);
+                break;
+            case 4:
+                type = new PrimitiveType(location, Primitive.INT);
+                break;
+            case 5:
+                type = new PrimitiveType(location, Primitive.FLOAT);
+                break;
+            case 6:
+                type = new PrimitiveType(location, Primitive.LONG);
+                break;
+            case 7:
+                type = new PrimitiveType(location, Primitive.DOUBLE);
+                break;
+            case -1:
+                type = parseReferenceTypeWithTypeArguments();
+                break;
+            default:
+                throw new InternalCompileException();
+        }
+
+        for (int i = parseBrackets(); i > 0; i--) {
+            type = new ArrayType(location, type);
+        }
+        return type;
+    }
+
+    private ReferenceType parseReferenceTypeWithTypeArguments() {
         return new ReferenceType(location(), parseQualifiedIdentifier(), parseTypeArguments());
     }
 
@@ -353,15 +706,15 @@ public class Parser {
         Location location = location();
         if (peekRead("?")) {
             if (peekRead("extends")) {
-                return new Wildcard(location, Wildcard.BOUNDS_EXTENDS, parseReferenceType());
+                return new Wildcard(location, Wildcard.BOUNDS_EXTENDS, parseReferenceTypeWithTypeArguments());
             } else if (peekRead("super")) {
-                return new Wildcard(location, Wildcard.BOUNDS_SUPER, parseReferenceType());
+                return new Wildcard(location, Wildcard.BOUNDS_SUPER, parseReferenceTypeWithTypeArguments());
             } else {
                 return new Wildcard(location);
             }
         }
 
-        Type type = parseType();
+        Type type = parseTypeWithTypeAuguments();
         if (!(type instanceof TypeArgument)) {
             throw new CompileException("'" + type + "' is not a type argument", location());
         }
@@ -371,7 +724,7 @@ public class Parser {
 
     private ReferenceType parseSuperclass() {
         if (peekRead("extends")) {
-            return parseReferenceType();
+            return parseReferenceTypeWithTypeArguments();
         }
         return null;
     }
@@ -380,7 +733,7 @@ public class Parser {
         if (peekRead("implements")) {
             List<ReferenceType> result = new ArrayList<>();
             do {
-                result.add(parseReferenceType());
+                result.add(parseReferenceTypeWithTypeArguments());
             } while (peekRead(","));
             return result.toArray(ReferenceType.EMPTY_ARRAY);
         }
@@ -391,7 +744,7 @@ public class Parser {
         Location location = location();
         if (peekRead("(")) {
             if (peek(PRIMITIVES) != -1 && !peek2(TokenType.IDENTIFIER)) {
-                Type type = parseType();
+                Type type = parseTypeWithTypeAuguments();
                 Value value = parseValue();
                 read(")");
                 return new Cast(location, type, value);
@@ -405,23 +758,28 @@ public class Parser {
         if (peek(TokenType.IDENTIFIER)) {
             String[] identifiers = parseQualifiedIdentifier();
             if (peek(".") && peek2("class")) {
+                read();
+                read();
                 return new ClassLiteral(location, new ReferenceType(location, identifiers));
             }
             return new AmbiguousName(location, identifiers);
         }
 
         if (peek(PRIMITIVES) != -1) {
-            Type type = parseType();
+            Type type = parseTypeWithTypeAuguments();
             if (peek(".") && peek2("class")) {
+                read();
+                read();
                 return new ClassLiteral(location, type);
             }
             throw new CompileException("Unexpected token", location);
         }
 
-        if (peek("void")) {
-            Type type = new PrimitiveType(location, Primitive.VOID);
+        if (peekRead("void")) {
             if (peek(".") && peek2("class")) {
-                return new ClassLiteral(location, type);
+                read();
+                read();
+                return new ClassLiteral(location, new PrimitiveType(location, Primitive.VOID));
             }
             throw new CompileException("Unexpected token \"void\"", location);
         }
@@ -449,42 +807,14 @@ public class Parser {
         }
     }
 
+    private IntegerLiteral parseIntegerLiteral() {
+        Token t = read(TokenType.INTEGER_LITERAL);
+        return new IntegerLiteral(t.getLocation(), t.getText());
+    }
+
     private StringLiteral parseStringLiteral() {
         Token t = read(TokenType.STRING_LITERAL);
         return new StringLiteral(t.getLocation(), t.getText());
-    }
-
-    private boolean hasModifier(Modifier[] modifiers, String keyword) {
-        for (Modifier modifier : modifiers) {
-            if (modifier.keyword.equals(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasModifierOneOf(Modifier[] modifiers, String... keywords) {
-        for (String keyword : keywords) {
-            for (Modifier modifier : modifiers) {
-                if (modifier.keyword.equals(keyword)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private boolean hasModifierAllOf(Modifier[] modifiers, String... keywords) {
-        NEXT:
-        for (String keyword : keywords) {
-            for (Modifier modifier : modifiers) {
-                if (modifier.keyword.equals(keyword)) {
-                    continue NEXT;
-                }
-            }
-            return false;
-        }
-        return true;
     }
 
     private Location location() {
@@ -535,8 +865,8 @@ public class Parser {
         return tokenStream.read();
     }
 
-    private void read(String expected) throws CompileException {
-        tokenStream.read(expected);
+    private Token read(String expected) throws CompileException {
+        return tokenStream.read(expected);
     }
 
     private Token read(TokenType expected) throws CompileException {

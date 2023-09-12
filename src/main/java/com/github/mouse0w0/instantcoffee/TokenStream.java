@@ -66,11 +66,12 @@ public class TokenStream {
         return result;
     }
 
-    public void read(String expected) throws CompileException {
+    public Token read(String expected) throws CompileException {
         final Token token = read();
         if (!expected.equals(token.getText())) {
             throw new CompileException("\"" + expected + "\" expected instead of \"" + token.getText() + "\"", token.getLocation());
         }
+        return token;
     }
 
     public Token read(TokenType expected) throws CompileException {

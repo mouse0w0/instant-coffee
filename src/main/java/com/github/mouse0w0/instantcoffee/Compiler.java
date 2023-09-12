@@ -1,11 +1,9 @@
 package com.github.mouse0w0.instantcoffee;
 
+import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.insn.*;
-import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.*;
 import org.objectweb.asm.signature.SignatureVisitor;
 import org.objectweb.asm.signature.SignatureWriter;
 
@@ -19,17 +17,15 @@ public class Compiler {
     private static final String OBJECT = "java/lang/Object";
     private static final String DEPRECATED = "java/lang/Deprecated";
 
-    private final int version;
-
-    public Compiler(int version) {
-        this.version = version;
+    public Compiler() {
     }
 
-    public void compile(ClassDeclaration cd) {
-
+    public ClassFile compile(ClassDeclaration cd) {
+        return compile(cd, new ClassFile());
     }
 
-    private void compile(ClassDeclaration cd, ClassFile cf) {
+    public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
+        int version = getVersion(cd.version);
         int access = getAccess(cd.modifiers);
         String name = getInternalName(cd.identifiers);
         String signature = getClassSignature(cd.typeParameters, cd.superclass, cd.interfaces);
@@ -41,6 +37,8 @@ public class Compiler {
         compileInnerClasses(cd.innerClasses, cf);
         compileFields(cd.fields, cf);
         compileMethods(cd.methods, cf);
+        cf.visitEnd();
+        return cf;
     }
 
     private String getInternalName(Type type) {
@@ -123,6 +121,10 @@ public class Compiler {
         return stringBuilder.append(")").append(getDescriptor(returnType)).toString();
     }
 
+    private int getVersion(IntegerLiteral literal) {
+        return getConstantValue2(literal).intValue() + 44;
+    }
+
     private int getAccess(Modifier[] modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
@@ -141,16 +143,16 @@ public class Compiler {
                 access |= ACC_SUPER;
             } else if ("synchronized".equals(keyword)) {
                 access |= ACC_SYNCHRONIZED;
-//            } else if ("open".equals(keyword)) {
-//                access |= ACC_OPEN;
-//            } else if ("transitive".equals(keyword)) {
-//                access |= ACC_TRANSITIVE;
+                //            } else if ("open".equals(keyword)) {
+                //                access |= ACC_OPEN;
+                //            } else if ("transitive".equals(keyword)) {
+                //                access |= ACC_TRANSITIVE;
             } else if ("volatile".equals(keyword)) {
                 access |= ACC_VOLATILE;
             } else if ("bridge".equals(keyword)) {
                 access |= ACC_BRIDGE;
-//            } else if ("static".equals(keyword)) {
-//                access |= ACC_STATIC_PHASE;
+                //            } else if ("static".equals(keyword)) {
+                //                access |= ACC_STATIC_PHASE;
             } else if ("varargs".equals(keyword)) {
                 access |= ACC_VARARGS;
             } else if ("transient".equals(keyword)) {
@@ -204,10 +206,9 @@ public class Compiler {
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
         for (InnerClassDeclaration innerClass : innerClasses) {
-            String name = getInternalName(innerClass.identifiers);
-            int separatorIndex = name.lastIndexOf('$');
-            String outerName = name.substring(0, separatorIndex);
-            String innerName = name.substring(separatorIndex + 1);
+            String outerName = getInternalName(innerClass.outerName);
+            String innerName = innerClass.innerName;
+            String name = outerName + "$" + innerName;
             int access = getAccess(innerClass.modifiers);
             cf.visitInnerClass(name, outerName, innerName, access);
         }
@@ -226,6 +227,7 @@ public class Compiler {
 
     private void compileField(FieldDeclaration field, FieldVisitor fv) {
         compileAnnotations(field.annotations, fv);
+        fv.visitEnd();
     }
 
     private void compileMethods(List<MethodDeclaration> methods, ClassFile cf) {
@@ -252,7 +254,7 @@ public class Compiler {
 
         mv.visitCode();
 
-        Map<String, Label> labels = new HashMap<>();
+        Map<String, Label> labels = getLabels(method.instructions);
 
         for (BaseInsn instruction : method.instructions) {
             compileInstruction(instruction, labels, mv);
@@ -266,6 +268,20 @@ public class Compiler {
             compileTryCatchBlock(tryCatchBlock, labels, mv);
         }
         mv.visitEnd();
+    }
+
+    private Map<String, Label> getLabels(List<BaseInsn> insnList) {
+        Map<String, Label> labels = new HashMap<>();
+        for (BaseInsn insn : insnList) {
+            if (insn instanceof LabelInsn) {
+                LabelInsn labelInsn = (LabelInsn) insn;
+                Label label = new Label();
+                if (labels.putIfAbsent(labelInsn.name, label) != null) {
+                    throw new CompileException("Duplicate label: " + labelInsn.name, labelInsn.getLocation());
+                }
+            }
+        }
+        return labels;
     }
 
     private void compileInstruction(BaseInsn insn, Map<String, Label> labels, MethodVisitor mv) {
@@ -289,6 +305,8 @@ public class Compiler {
             compileLdcInsn((LdcInsn) insn, mv);
         } else if (insn instanceof IincInsn) {
             compileIincInsn((IincInsn) insn, mv);
+        } else if (insn instanceof SwitchInsn) {
+            compileSwitchInsn((SwitchInsn) insn, labels, mv);
         } else if (insn instanceof MultiANewArrayInsn) {
             compileMultiANewArrayInsn((MultiANewArrayInsn) insn, mv);
         } else if (insn instanceof LineNumberInsn) {
@@ -319,9 +337,11 @@ public class Compiler {
     }
 
     private void compileMethodInsn(MethodInsn insn, MethodVisitor mv) {
-        boolean isInterfaceStatic = "invokeinterfacestatic".equals(insn.opcode);
-        int opcode = isInterfaceStatic ? INVOKESTATIC : nameToOpcode(insn.opcode);
-        boolean isInterface = isInterfaceStatic || opcode == INVOKEINTERFACE;
+        int opcode = nameToOpcode(insn.opcode);
+        boolean isInterface = opcode >= INVOKEINTERFACE;
+        if (opcode >= INVOKEVIRTUALINTERFACE) {
+            opcode -= (INVOKEVIRTUALINTERFACE - INVOKEVIRTUAL);
+        }
         mv.visitMethodInsn(opcode, getInternalName(insn.owner), insn.name, getMethodDescriptor(insn.parameterTypes, insn.returnType), isInterface);
     }
 
@@ -334,17 +354,67 @@ public class Compiler {
     }
 
     private void compileLabelInsn(LabelInsn labelInsn, Map<String, Label> labels, MethodVisitor mv) {
-        Label label = new Label();
-        labels.put(labelInsn.name, label);
-        mv.visitLabel(label);
+        mv.visitLabel(labels.get(labelInsn.name));
     }
 
     private void compileLdcInsn(LdcInsn insn, MethodVisitor mv) {
-        mv.visitLdcInsn(getConstantValue(insn.value));
+        Object constantValue = getConstantValue(insn.value);
+        if (constantValue instanceof Boolean) {
+            push((Boolean) constantValue, mv);
+        } else if (constantValue instanceof Character) {
+            push((Character) constantValue, mv);
+        } else if (constantValue instanceof Integer) {
+            push((Integer) constantValue, mv);
+        } else if (constantValue instanceof Long) {
+            push((Long) constantValue, mv);
+        } else if (constantValue instanceof Float) {
+            push((Float) constantValue, mv);
+        } else if (constantValue instanceof Double) {
+            push((Double) constantValue, mv);
+        } else if (constantValue instanceof String) {
+            push((String) constantValue, mv);
+        } else if (constantValue instanceof org.objectweb.asm.Type) {
+            push((org.objectweb.asm.Type) constantValue, mv);
+        } else {
+            throw new InternalCompileException(constantValue.getClass().getName());
+        }
     }
 
     private void compileIincInsn(IincInsn insn, MethodVisitor mv) {
         mv.visitIincInsn(getConstantValue2(insn.var).intValue(), getConstantValue2(insn.increment).intValue());
+    }
+
+    private void compileSwitchInsn(SwitchInsn insn, Map<String, Label> labelMap, MethodVisitor mv) {
+        TreeMap<Integer, Label> keyLabelMap = new TreeMap<>();
+        for (SwitchCase cas : insn.cases) {
+            if (keyLabelMap.putIfAbsent(getConstantValue2(cas.key).intValue(), labelMap.get(cas.label)) != null) {
+                throw new CompileException("Duplicate switch case: " + cas.key, insn.getLocation());
+            }
+        }
+
+        Label dflt = labelMap.get(insn.dflt);
+        int min = keyLabelMap.firstKey();
+        int max = keyLabelMap.lastKey();
+        int keyLabelMapSize = keyLabelMap.size();
+        if (min + keyLabelMapSize >= max - keyLabelMapSize) {
+            int size = max - min + 1;
+            Label[] labels = new Label[size];
+            for (int i = 0; i < size; i++) {
+                Label label = keyLabelMap.get(min + i);
+                labels[i] = label != null ? label : dflt;
+            }
+            mv.visitTableSwitchInsn(min, max, dflt, labels);
+        } else {
+            int[] keys = new int[keyLabelMapSize];
+            Label[] labels = new Label[keyLabelMapSize];
+            int offset = 0;
+            for (Map.Entry<Integer, Label> keyLabel : keyLabelMap.entrySet()) {
+                keys[offset] = keyLabel.getKey();
+                labels[offset] = keyLabel.getValue();
+                offset++;
+            }
+            mv.visitLookupSwitchInsn(dflt, keys, labels);
+        }
     }
 
     private void compileMultiANewArrayInsn(MultiANewArrayInsn insn, MethodVisitor mv) {
@@ -419,6 +489,7 @@ public class Compiler {
         for (AnnotationValuePair pair : annotation.pairs) {
             compileAnnotationValue(pair.key, pair.value, av);
         }
+        av.visitEnd();
     }
 
     private void compileAnnotationValue(String key, AnnotationValue value, AnnotationVisitor av) {
@@ -444,6 +515,7 @@ public class Compiler {
         for (AnnotationValue value : ava.values) {
             compileAnnotationValue(null, value, av);
         }
+        av.visitEnd();
     }
 
     private Object getConstantValue(Value value) {
@@ -625,7 +697,7 @@ public class Compiler {
     }
 
     private boolean checkNoClassSignature(TypeParameter[] typeParameters, ReferenceType superclass, ReferenceType[] interfaces) {
-        if (typeParameters == null || typeParameters.length != 0) return false;
+        if (typeParameters != null && typeParameters.length != 0) return false;
         if (!checkNoSignature(superclass)) return false;
         for (ReferenceType inte : interfaces) {
             if (!checkNoSignature(inte)) return false;
@@ -686,6 +758,7 @@ public class Compiler {
     }
 
     private void visitTypeParameters(TypeParameter[] typeParameters, SignatureVisitor sw) {
+        if (typeParameters == null) return;
         for (TypeParameter typeParameter : typeParameters) {
             visitTypeParameter(typeParameter, sw);
         }
@@ -761,6 +834,97 @@ public class Compiler {
                     return;
                 default:
                     throw new InternalCompileException("primitive");
+            }
+        }
+    }
+
+    private void push(boolean value, MethodVisitor mv) {
+        push(value ? 1 : 0, mv);
+    }
+
+    private void push(int value, MethodVisitor mv) {
+        if (value >= -1 && value <= 5) {
+            mv.visitInsn(Opcodes.ICONST_0 + value);
+        } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+            mv.visitIntInsn(Opcodes.BIPUSH, value);
+        } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+            mv.visitIntInsn(Opcodes.SIPUSH, value);
+        } else {
+            mv.visitLdcInsn(value);
+        }
+    }
+
+    private void push(long value, MethodVisitor mv) {
+        if (value == 0L || value == 1L) {
+            mv.visitInsn(Opcodes.LCONST_0 + (int) value);
+        } else {
+            mv.visitLdcInsn(value);
+        }
+    }
+
+    private void push(float value, MethodVisitor mv) {
+        int bits = Float.floatToIntBits(value);
+        if (bits == 0L || bits == 0x3F800000 || bits == 0x40000000) { // 0..2
+            mv.visitInsn(Opcodes.FCONST_0 + (int) value);
+        } else {
+            mv.visitLdcInsn(value);
+        }
+    }
+
+    private void push(double value, MethodVisitor mv) {
+        long bits = Double.doubleToLongBits(value);
+        if (bits == 0L || bits == 0x3FF0000000000000L) { // +0.0d and 1.0d
+            mv.visitInsn(Opcodes.DCONST_0 + (int) value);
+        } else {
+            mv.visitLdcInsn(value);
+        }
+    }
+
+    private void push(String value, MethodVisitor mv) {
+        if (value == null) {
+            mv.visitInsn(Opcodes.ACONST_NULL);
+        } else {
+            mv.visitLdcInsn(value);
+        }
+    }
+
+    private static final String CLASS_DESCRIPTOR = "Ljava/lang/Class;";
+
+    private void push(org.objectweb.asm.Type value, MethodVisitor mv) {
+        if (value == null) {
+            mv.visitInsn(Opcodes.ACONST_NULL);
+        } else {
+            switch (value.getSort()) {
+                case org.objectweb.asm.Type.VOID:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Void", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.BOOLEAN:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Boolean", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.CHAR:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Character", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.BYTE:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Byte", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.SHORT:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Short", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.INT:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Integer", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.FLOAT:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Float", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.LONG:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Long", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                case org.objectweb.asm.Type.DOUBLE:
+                    mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/Double", "TYPE", CLASS_DESCRIPTOR);
+                    break;
+                default:
+                    mv.visitLdcInsn(value);
+                    break;
             }
         }
     }

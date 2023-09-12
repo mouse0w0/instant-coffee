@@ -9,9 +9,10 @@ import java.util.List;
 
 public class Unparser {
     private static final String NO_INDENT = "";
-    private static final String INDENT = "    ";
-    private static final String INDENT2 = INDENT + "  ";
-    private static final String INDENT3 = INDENT + INDENT;
+    private static final String INDENT = "  ";
+    private static final String INDENT2 = INDENT + INDENT;
+    private static final String INDENT3 = INDENT2 + INDENT;
+    private static final String INDENT4 = INDENT3 + INDENT;
 
     private boolean skipLineNumber;
     private boolean skipLocalVariable;
@@ -49,10 +50,10 @@ public class Unparser {
         unparseModifiers(cd.modifiers, pw);
         unparseIdentifiers(cd.identifiers, pw);
         unparseTypeParameters(cd.typeParameters, pw);
-        pw.append(" ");
         unparseSuperclass(cd.superclass, pw);
         unparseInterfaces(cd.interfaces, pw);
-        pw.println("{");
+        pw.println(" {");
+        unparseVersion(cd.version, pw);
         unparseSource(cd.source, pw);
         for (InnerClassDeclaration innerClass : cd.innerClasses) {
             unparseInnerClass(innerClass, pw);
@@ -73,7 +74,19 @@ public class Unparser {
     }
 
     private void unparseIdentifiers(String[] identifiers, PrintWriter pw) {
-        pw.append(String.join(".", identifiers));
+        switch (identifiers.length) {
+            case 0:
+                break;
+            case 1:
+                pw.append(identifiers[0]);
+                break;
+            default:
+                pw.append(identifiers[0]);
+                for (int i = 1; i < identifiers.length; i++) {
+                    pw.append(".").append(identifiers[i]);
+                }
+                break;
+        }
     }
 
     private void unparseTypeParameters(TypeParameter[] typeParameters, PrintWriter pw) {
@@ -110,19 +123,18 @@ public class Unparser {
 
     private void unparseSuperclass(ReferenceType superclass, PrintWriter pw) {
         if (superclass == null) return;
-        pw.append("extends ").append(superclass.toString()).append(" ");
+        pw.append(" extends ").append(superclass.toString());
     }
 
     private void unparseInterfaces(ReferenceType[] interfaces, PrintWriter pw) {
         if (interfaces.length == 0) return;
         boolean firstVisited = false;
-        pw.append("implements ");
+        pw.append(" implements ");
         for (ReferenceType inte : interfaces) {
             if (firstVisited) pw.append(", ");
             else firstVisited = true;
             pw.append(inte.toString());
         }
-        pw.append(" ");
     }
 
     private void unparseAnnotations(Annotation[] annotations, String indent, PrintWriter pw) {
@@ -167,57 +179,70 @@ public class Unparser {
         pw.append("}");
     }
 
-    private void unparseSource(SourceDeclaration source, PrintWriter pw) {
-        if (source == null) return;
+    private void unparseVersion(IntegerLiteral version, PrintWriter pw) {
         pw.println();
-        pw.append(INDENT).append("source ").append(source.file.toString());
+        pw.append(INDENT).append("version ").append(version.value);
         pw.println();
     }
 
-    private void unparseInnerClass(InnerClassDeclaration innerClass, PrintWriter pw) {
+    private void unparseSource(SourceDeclaration sd, PrintWriter pw) {
+        if (sd == null) return;
+        pw.println();
+        pw.append(INDENT).append("source ").append(sd.file.toString());
+        pw.println();
+    }
+
+    private void unparseInnerClass(InnerClassDeclaration icd, PrintWriter pw) {
         pw.println();
         pw.append(INDENT);
-        unparseModifiers(innerClass.modifiers, pw);
+        unparseModifiers(icd.modifiers, pw);
         pw.append("innerclass ");
-        unparseIdentifiers(innerClass.identifiers, pw);
+        unparseIdentifiers(icd.outerName, pw);
+        pw.append(" ").append(icd.innerName);
         pw.println();
     }
 
-    private void unparseField(FieldDeclaration field, PrintWriter pw) {
+    private void unparseField(FieldDeclaration fd, PrintWriter pw) {
         pw.println();
-        unparseAnnotations(field.annotations, INDENT, pw);
+        unparseAnnotations(fd.annotations, INDENT, pw);
         pw.append(INDENT);
-        unparseModifiers(field.modifiers, pw);
-        pw.append(field.type.toString()).append(" ").append(field.name);
-        if (!(field.value instanceof NullLiteral)) {
-            pw.append(" = ").append(field.value.toString());
+        unparseModifiers(fd.modifiers, pw);
+        pw.append(fd.type.toString()).append(" ").append(fd.name);
+        if (!(fd.value instanceof NullLiteral)) {
+            pw.append(" = ").append(fd.value.toString());
         }
         pw.println();
     }
 
-    private void unparseMethod(MethodDeclaration method, PrintWriter pw) {
+    private void unparseMethod(MethodDeclaration md, PrintWriter pw) {
         pw.println();
-        unparseAnnotations(method.annotations, INDENT, pw);
-        if ("<clinit>".equals(method.name)) {
+        unparseAnnotations(md.annotations, INDENT, pw);
+        if ("<clinit>".equals(md.name)) {
             pw.append(INDENT).append("static");
         } else {
             pw.append(INDENT);
-            unparseModifiers(method.modifiers, pw);
-            unparseTypeParameters(method.typeParameters, pw);
-            if ("<init>".equals(method.name)) {
+            unparseModifiers(md.modifiers, pw);
+            unparseTypeParameters(md.typeParameters, pw);
+            if ("<init>".equals(md.name)) {
                 pw.append("<init>");
             } else {
-                pw.append(method.returnType.toString()).append(" ").append(method.name);
+                pw.append(md.returnType.toString()).append(" ").append(md.name);
             }
             pw.append("(");
-            unparseMethodParameters(method.parameterTypes, pw);
+            unparseMethodParameters(md.parameterTypes, pw);
             pw.append(")");
-            unparseMethodExceptions(method.exceptionTypes, pw);
+            unparseMethodExceptions(md.exceptionTypes, pw);
         }
+
+        if (hasModifier(md.modifiers, "abstract")) {
+            pw.println();
+            return;
+        }
+
         pw.println(" {");
-        unparseInstructions(method.instructions, pw);
-        unparseLocalVariables(method.localVariables, pw);
-        unparseTryCatchBlock(method.tryCatchBlocks, pw);
+        unparseInstructions(md.instructions, pw);
+        unparseLocalVariables(md.localVariables, pw);
+        unparseTryCatchBlocks(md.tryCatchBlocks, pw);
         pw.append(INDENT).println("}");
     }
 
@@ -329,14 +354,18 @@ public class Unparser {
     }
 
     private void unparseSwitchInsn(SwitchInsn switchInsn, PrintWriter pw) {
-        throw new UnsupportedOperationException("switch");
+        pw.append(INDENT3).append("switch {").println();
+        for (SwitchCase cas : switchInsn.cases) {
+            pw.append(INDENT4).append(cas.key.toString()).append(" : ").append(cas.label).println();
+        }
+        pw.append(INDENT4).append("default : ").append(switchInsn.dflt).println();
+        pw.append(INDENT3).append("}").println();
     }
 
     private void unparseMultiANewArrayInsn(MultiANewArrayInsn multiANewArrayInsn, PrintWriter pw) {
         pw.append(INDENT3).append(multiANewArrayInsn.opcode);
         pw.append(" ").append(multiANewArrayInsn.type.toString());
         pw.append(" ").append(multiANewArrayInsn.numDimensions.toString());
-
         pw.println();
     }
 
@@ -351,23 +380,33 @@ public class Unparser {
     private void unparseLocalVariables(List<LocalVariable> localVariables, PrintWriter pw) {
         if (skipLocalVariable) return;
         for (LocalVariable localVariable : localVariables) {
-            pw.append(INDENT3).append("local")
-                    .append(" ").append(localVariable.name)
-                    .append(" ").append(localVariable.type.toString())
-                    .append(" ").append(localVariable.start)
-                    .append(" ").append(localVariable.end)
-                    .append(" ").append(localVariable.index.toString())
-                    .println();
+            pw.append(INDENT3).append("var");
+            pw.append(" ").append(localVariable.name);
+            pw.append(" ").append(localVariable.type.toString());
+            pw.append(" ").append(localVariable.start);
+            pw.append(" ").append(localVariable.end);
+            pw.append(" ").append(localVariable.index.toString());
+            pw.println();
         }
     }
 
-    private void unparseTryCatchBlock(List<TryCatchBlock> tryCatchBlocks, PrintWriter pw) {
+    private void unparseTryCatchBlocks(List<TryCatchBlock> tryCatchBlocks, PrintWriter pw) {
         for (TryCatchBlock tryCatchBlock : tryCatchBlocks) {
-            pw.append(INDENT3).append("catch")
-                    .append(tryCatchBlock.start)
-                    .append(tryCatchBlock.end)
-                    .append(tryCatchBlock.handler)
-                    .append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
+            pw.append(INDENT3).append("try");
+            pw.append(tryCatchBlock.start);
+            pw.append(tryCatchBlock.end);
+            pw.append(tryCatchBlock.handler);
+            pw.append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
+            pw.println();
         }
+    }
+
+    private boolean hasModifier(Modifier[] modifiers, String keyword) {
+        for (Modifier modifier : modifiers) {
+            if (modifier.keyword.equals(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

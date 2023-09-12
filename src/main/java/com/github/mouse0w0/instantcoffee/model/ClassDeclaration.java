@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ClassDeclaration extends Located {
+    public IntegerLiteral version;
     public Annotation[] annotations;
     public Modifier[] modifiers;
     public String[] identifiers;

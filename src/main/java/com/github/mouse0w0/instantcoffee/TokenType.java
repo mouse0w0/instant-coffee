@@ -2,7 +2,6 @@ package com.github.mouse0w0.instantcoffee;
 
 public enum TokenType {
     END_OF_FILE,
-    KEYWORD,
     OPERATOR,
     IDENTIFIER,
     NULL_LITERAL,

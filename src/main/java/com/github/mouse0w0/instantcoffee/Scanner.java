@@ -2,9 +2,6 @@ package com.github.mouse0w0.instantcoffee;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 public class Scanner {
     private static final int EOF = -1;
@@ -37,7 +34,7 @@ public class Scanner {
         TokenType tokenType = scan();
         String tokenValue = sb.toString();
 
-        if (tokenType == TokenType.KEYWORD || tokenType == TokenType.BOOLEAN_LITERAL || tokenType == TokenType.NULL_LITERAL || tokenType == TokenType.OPERATOR) {
+        if (tokenType == TokenType.BOOLEAN_LITERAL || tokenType == TokenType.NULL_LITERAL || tokenType == TokenType.OPERATOR) {
             tokenValue = tokenValue.intern();
         }
 
@@ -85,7 +82,6 @@ public class Scanner {
             if ("true".equals(s)) return TokenType.BOOLEAN_LITERAL;
             if ("false".equals(s)) return TokenType.BOOLEAN_LITERAL;
             if ("null".equals(s)) return TokenType.NULL_LITERAL;
-            if (KEYWORDS.contains(s)) return TokenType.KEYWORD;
             return TokenType.IDENTIFIER;
         }
 
@@ -115,7 +111,7 @@ public class Scanner {
         }
 
         // Scan operator
-        if (peekRead("(){}[]<>,.@=:-")) {
+        if (peekRead("(){}[]<>,.@=:-?")) {
             return TokenType.OPERATOR;
         }
 
@@ -378,6 +374,4 @@ public class Scanner {
             throw new CompileException(e.getMessage(), location(), e);
         }
     }
-
-    private static final Set<String> KEYWORDS = new HashSet<>(Arrays.asList("abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while"));
 }

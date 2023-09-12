@@ -40,7 +40,7 @@ public class Decompiler {
     public ClassDeclaration decompileClass(ClassReader cr) {
         MyClassVisitor cv = new MyClassVisitor();
         cr.accept(cv, ClassReader.SKIP_FRAMES);
-        return new ClassDeclaration(
+        ClassDeclaration cd = new ClassDeclaration(
                 Location.UNKNOWN,
                 cv.annotations.toArray(Annotation.EMPTY_ARRAY),
                 cv.modifiers,
@@ -52,6 +52,12 @@ public class Decompiler {
                 cv.innerClasses,
                 cv.fields,
                 cv.methods);
+        cd.version = cv.version;
+        return cd;
+    }
+
+    private static IntegerLiteral parseVersion(int version) {
+        return new IntegerLiteral(Location.UNKNOWN, Integer.toString((version - 44) & 0xFFFF));
     }
 
     private static Modifier[] parseClassModifiers(int access) {
@@ -202,7 +208,7 @@ public class Decompiler {
             case 'L':
                 return parseInternalName(typeDescriptor, begin + 1, end - 1);
             case '(':
-                throw new UnsupportedOperationException("method descriptor");
+                throw new IllegalArgumentException("method descriptor");
             default:
                 throw new IllegalArgumentException();
         }
@@ -242,8 +248,12 @@ public class Decompiler {
         } else if (value instanceof Character) {
             return new CharacterLiteral(Location.UNKNOWN, "'" + escape(value.toString()) + "'");
         } else {
-            throw new UnsupportedOperationException("unsupported type: " + value.getClass());
+            throw new IllegalArgumentException("unsupported type: " + value.getClass());
         }
+    }
+
+    private static IntegerLiteral parseIntegerLiteral(int value) {
+        return new IntegerLiteral(Location.UNKNOWN, Integer.toString(value));
     }
 
     private static String escape(String s) {
@@ -265,10 +275,11 @@ public class Decompiler {
         List<String> l = new ArrayList<>();
         parseIdentifiers(descriptor, 1, descriptor.length() - 1, l);
         l.add(value);
-        return new AmbiguousName(Location.UNKNOWN, EMPTY_STRING_ARRAY);
+        return new AmbiguousName(Location.UNKNOWN, l.toArray(EMPTY_STRING_ARRAY));
     }
 
     private static class MyClassVisitor extends ClassVisitor {
+        private IntegerLiteral version;
         private Modifier[] modifiers;
         private String[] identifiers;
         private TypeParameter[] typeParameters;
@@ -289,6 +300,7 @@ public class Decompiler {
 
         @Override
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+            this.version = parseVersion(version);
             this.modifiers = parseClassModifiers(access);
             this.identifiers = parseIdentifiers(name);
 
@@ -357,7 +369,7 @@ public class Decompiler {
 
         @Override
         public void visitInnerClass(String name, String outerName, String innerName, int access) {
-            innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, parseClassModifiers(access), parseIdentifiers(name)));
+            innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, parseClassModifiers(access), parseIdentifiers(outerName), innerName));
         }
 
         @Override
@@ -527,12 +539,12 @@ public class Decompiler {
 
         @Override
         public void visitIntInsn(int opcode, int operand) {
-            instructions.add(new IntInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), new IntegerLiteral(Location.UNKNOWN, Integer.toString(operand))));
+            instructions.add(new IntInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseIntegerLiteral(operand)));
         }
 
         @Override
         public void visitVarInsn(int opcode, int var) {
-            instructions.add(new VarInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), new IntegerLiteral(Location.UNKNOWN, Integer.toString(var))));
+            instructions.add(new VarInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseIntegerLiteral(var)));
         }
 
         @Override
@@ -547,12 +559,7 @@ public class Decompiler {
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-            String opcodeName;
-            if (opcode == INVOKESTATIC && isInterface) {
-                opcodeName = "invokeinterfacestatic";
-            } else {
-                opcodeName = Constants.opcodeToName(opcode);
-            }
+            String opcodeName = Constants.opcodeToName(opcode);
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
             Type[] parameterTypes = new Type[parameters.length];
             for (int i = 0; i < parameters.length; i++) {
@@ -570,11 +577,11 @@ public class Decompiler {
 
         @Override
         public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-//            System.out.append("INVOKEDYNAMIC ")
-//                    .append(name).append(" ")
-//                    .append(descriptor).append(" ")
-//                    .append(bootstrapMethodHandle.toString()).append(" ")
-//                    .append(Arrays.deepToString(bootstrapMethodArguments)).println();
+            //            System.out.append("INVOKEDYNAMIC ")
+            //                    .append(name).append(" ")
+            //                    .append(descriptor).append(" ")
+            //                    .append(bootstrapMethodHandle.toString()).append(" ")
+            //                    .append(Arrays.deepToString(bootstrapMethodArguments)).println();
             throw new UnsupportedOperationException("invoke dynamic");
         }
 
@@ -597,17 +604,16 @@ public class Decompiler {
             return labelInsn;
         }
 
-        private String getLabelName(int idx) {
-            char[] buf = new char[8];
+        private static String getLabelName(int idx) {
+            char[] buf = new char[7];
             int charPos = 7;
 
-            while (idx > 26) {
-                buf[charPos--] = (char) ('A' - 1 + (idx % 26));
-                idx = idx / 26;
+            while (idx > 0) {
+                buf[--charPos] = (char) ('A' + ((idx - 1) % 26));
+                idx = (idx - 1) / 26;
             }
-            buf[charPos] = (char) ('A' - 1 + idx);
 
-            return new String(buf, charPos, 8 - charPos);
+            return new String(buf, charPos, 7 - charPos);
         }
 
         @Override
@@ -619,18 +625,34 @@ public class Decompiler {
         public void visitIincInsn(int var, int increment) {
             instructions.add(new IincInsn(
                     Location.UNKNOWN,
-                    new IntegerLiteral(Location.UNKNOWN, Integer.toString(var)),
-                    new IntegerLiteral(Location.UNKNOWN, Integer.toString(increment))));
+                    parseIntegerLiteral(var),
+                    parseIntegerLiteral(increment)));
         }
 
         @Override
         public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
-            throw new UnsupportedOperationException("table switch");
+            SwitchCase[] insnCases = new SwitchCase[labels.length];
+            for (int i = 0; i < labels.length; i++) {
+                insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(i + min), getLabel(labels[i]).name);
+            }
+            String insnDflt = getLabel(dflt).name;
+            instructions.add(new SwitchInsn(
+                    Location.UNKNOWN,
+                    insnCases,
+                    insnDflt));
         }
 
         @Override
         public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
-            throw new UnsupportedOperationException("lookup switch");
+            SwitchCase[] insnCases = new SwitchCase[labels.length];
+            for (int i = 0; i < labels.length; i++) {
+                insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(keys[i]), getLabel(labels[i]).name);
+            }
+            String insnDflt = getLabel(dflt).name;
+            instructions.add(new SwitchInsn(
+                    Location.UNKNOWN,
+                    insnCases,
+                    insnDflt));
         }
 
         @Override
@@ -638,7 +660,7 @@ public class Decompiler {
             instructions.add(new MultiANewArrayInsn(
                     Location.UNKNOWN,
                     parseTypeDescriptor(descriptor),
-                    new IntegerLiteral(Location.UNKNOWN, Integer.toString(numDimensions))));
+                    parseIntegerLiteral(numDimensions)));
         }
 
         @Override
@@ -670,7 +692,7 @@ public class Decompiler {
                     signature != null ? parseTypeSignature(signature) : parseTypeDescriptor(descriptor),
                     getLabel(start).name,
                     getLabel(end).name,
-                    new IntegerLiteral(Location.UNKNOWN, Integer.toString(index))));
+                    parseIntegerLiteral(index)));
         }
 
         @Override
@@ -682,7 +704,7 @@ public class Decompiler {
         public void visitLineNumber(int line, Label start) {
             instructions.add(new LineNumberInsn(
                     Location.UNKNOWN,
-                    new IntegerLiteral(Location.UNKNOWN, Integer.toString(line)),
+                    parseIntegerLiteral(line),
                     getLabel(start).name));
         }
 
@@ -751,6 +773,42 @@ public class Decompiler {
         @Override
         public void visitEnd() {
             callback.accept(new Annotation(Location.UNKNOWN, type, values.toArray(AnnotationValuePair.EMPTY_ARRAY), visible));
+        }
+    }
+
+    private static class ValueAnnotationVisitor extends AnnotationVisitor {
+        private final Consumer<AnnotationValue> callback;
+
+        private AnnotationValue annotationValue;
+
+        public ValueAnnotationVisitor(Consumer<AnnotationValue> callback) {
+            super(Opcodes.ASM9);
+            this.callback = callback;
+        }
+
+        @Override
+        public void visit(String name, Object value) {
+            annotationValue = parseValue(value);
+        }
+
+        @Override
+        public void visitEnum(String name, String descriptor, String value) {
+            annotationValue = parseEnum(descriptor, value);
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+            return new NormalAnnotationVisitor(descriptor, true, annotation -> annotationValue = annotation);
+        }
+
+        @Override
+        public AnnotationVisitor visitArray(String name) {
+            return new ArrayAnnotationVisitor(arrayValue -> annotationValue = arrayValue);
+        }
+
+        @Override
+        public void visitEnd() {
+            callback.accept(annotationValue);
         }
     }
 
