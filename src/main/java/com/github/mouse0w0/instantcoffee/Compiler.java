@@ -143,16 +143,16 @@ public class Compiler {
                 access |= ACC_SUPER;
             } else if ("synchronized".equals(keyword)) {
                 access |= ACC_SYNCHRONIZED;
-                //            } else if ("open".equals(keyword)) {
-                //                access |= ACC_OPEN;
-                //            } else if ("transitive".equals(keyword)) {
-                //                access |= ACC_TRANSITIVE;
+                // } else if ("open".equals(keyword)) {
+                //     access |= ACC_OPEN;
+                // } else if ("transitive".equals(keyword)) {
+                //     access |= ACC_TRANSITIVE;
             } else if ("volatile".equals(keyword)) {
                 access |= ACC_VOLATILE;
             } else if ("bridge".equals(keyword)) {
                 access |= ACC_BRIDGE;
-                //            } else if ("static".equals(keyword)) {
-                //                access |= ACC_STATIC_PHASE;
+                // } else if ("static".equals(keyword)) {
+                //     access |= ACC_STATIC_PHASE;
             } else if ("varargs".equals(keyword)) {
                 access |= ACC_VARARGS;
             } else if ("transient".equals(keyword)) {
@@ -251,6 +251,7 @@ public class Compiler {
 
     private void compileMethod(MethodDeclaration method, MethodVisitor mv) {
         compileAnnotations(method.annotations, mv);
+        compileMethodDefaultValue(method.defaultValue, mv);
 
         mv.visitCode();
 
@@ -268,6 +269,12 @@ public class Compiler {
             compileTryCatchBlock(tryCatchBlock, labels, mv);
         }
         mv.visitEnd();
+    }
+
+    private void compileMethodDefaultValue(AnnotationValue defaultValue, MethodVisitor mv) {
+        if (defaultValue != null) {
+            compileAnnotationValue(null, defaultValue, mv.visitAnnotationDefault());
+        }
     }
 
     private Map<String, Label> getLabels(List<BaseInsn> insnList) {

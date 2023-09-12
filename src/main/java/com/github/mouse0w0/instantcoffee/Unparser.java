@@ -74,25 +74,16 @@ public class Unparser {
     }
 
     private void unparseIdentifiers(String[] identifiers, PrintWriter pw) {
-        switch (identifiers.length) {
-            case 0:
-                break;
-            case 1:
-                pw.append(identifiers[0]);
-                break;
-            default:
-                pw.append(identifiers[0]);
-                for (int i = 1; i < identifiers.length; i++) {
-                    pw.append(".").append(identifiers[i]);
-                }
-                break;
+        if (identifiers.length != 0) {
+            pw.append(identifiers[0]);
+            for (int i = 1; i < identifiers.length; i++) {
+                pw.append(".").append(identifiers[i]);
+            }
         }
     }
 
     private void unparseTypeParameters(TypeParameter[] typeParameters, PrintWriter pw) {
-        if (typeParameters.length == 0) {
-            return;
-        }
+        if (typeParameters.length == 0) return;
         pw.append("<");
         unparseTypeParameter(typeParameters[0], pw);
         for (int i = 1; i < typeParameters.length; i++) {
@@ -107,16 +98,15 @@ public class Unparser {
         ReferenceType[] bounds = typeParameter.bounds;
         if (bounds.length != 0) {
             if (bounds[0] != null) {
-                pw.append(" extends ");
+                pw.append(" extends ").append(bounds[0].toString());
+                for (int i = 1; i < bounds.length; i++) {
+                    pw.append(" & ").append(bounds[i].toString());
+                }
             } else {
-                pw.append(" implements ");
-            }
-            boolean firstVisited = false;
-            for (ReferenceType bound : bounds) {
-                if (bound == null) continue;
-                if (firstVisited) pw.append(" & ");
-                else firstVisited = true;
-                pw.append(bound.toString());
+                pw.append(" implements ").append(bounds[1].toString());
+                for (int i = 2; i < bounds.length; i++) {
+                    pw.append(" & ").append(bounds[i].toString());
+                }
             }
         }
     }
@@ -223,6 +213,9 @@ public class Unparser {
             pw.append(INDENT);
             unparseModifiers(md.modifiers, pw);
             unparseTypeParameters(md.typeParameters, pw);
+            if (md.typeParameters.length != 0) {
+                pw.append(" ");
+            }
             if ("<init>".equals(md.name)) {
                 pw.append("<init>");
             } else {
@@ -232,6 +225,7 @@ public class Unparser {
             unparseMethodParameters(md.parameterTypes, pw);
             pw.append(")");
             unparseMethodExceptions(md.exceptionTypes, pw);
+            unparseMethodDefaultValue(md.defaultValue, pw);
         }
 
         if (hasModifier(md.modifiers, "abstract")) {
@@ -248,23 +242,23 @@ public class Unparser {
 
     private void unparseMethodParameters(Type[] parameterTypes, PrintWriter pw) {
         if (parameterTypes.length == 0) return;
-        boolean firstVisited = false;
-        for (Type parameterType : parameterTypes) {
-            if (firstVisited) pw.append(", ");
-            else firstVisited = true;
-            pw.append(parameterType.toString());
+        pw.append(parameterTypes[0].toString());
+        for (int i = 1; i < parameterTypes.length; i++) {
+            pw.append(", ").append(parameterTypes[i].toString());
         }
     }
 
     private void unparseMethodExceptions(Type[] exceptionTypes, PrintWriter pw) {
         if (exceptionTypes.length == 0) return;
-        pw.append(" throws");
-        boolean firstVisited = false;
-        for (Type exceptionType : exceptionTypes) {
-            if (firstVisited) pw.append(", ");
-            else firstVisited = true;
-            pw.append(exceptionType.toString());
+        pw.append(" throws ").append(exceptionTypes[0].toString());
+        for (int i = 1; i < exceptionTypes.length; i++) {
+            pw.append(", ").append(exceptionTypes[i].toString());
         }
+    }
+
+    private void unparseMethodDefaultValue(AnnotationValue defaultValue, PrintWriter pw) {
+        if (defaultValue == null) return;
+        pw.append(" default ").append(defaultValue.toString());
     }
 
     private void unparseInstructions(List<BaseInsn> instructions, PrintWriter pw) {

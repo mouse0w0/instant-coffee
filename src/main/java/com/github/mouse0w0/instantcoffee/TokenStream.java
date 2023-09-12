@@ -77,7 +77,7 @@ public class TokenStream {
     public Token read(TokenType expected) throws CompileException {
         final Token token = read();
         if (!expected.equals(token.getType())) {
-            throw new CompileException(expected + " expected instead of " + token.getType(), token.getLocation());
+            throw new CompileException(expected + " expected instead of " + token.getType() + " \"" + token.getText() + "\"", token.getLocation());
         }
         return token;
     }

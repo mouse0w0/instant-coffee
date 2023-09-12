@@ -25,7 +25,7 @@ public class Parser {
             "abstract", // 0x0400
             "strict", // 0x0800
             "synthetic", // 0x1000
-            //            "@interface", // 0x2000
+            // "@interface", // 0x2000
             "enum", // 0x4000
             "mandated", // 0x8000
             "module", // 0x8000
@@ -103,7 +103,14 @@ public class Parser {
                 typeParameters[0].bounds.length == 0) {
             Location location = location();
             Type returnType = new PrimitiveType(location, Primitive.VOID);
-            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, "<init>"));
+            cd.methods.add(parseMethodDeclaration(
+                    location,
+                    annotations,
+                    modifiers,
+                    TypeParameter.EMPTY_ARRAY,
+                    returnType,
+                    "<init>",
+                    false));
             return;
         }
 
@@ -111,15 +118,29 @@ public class Parser {
             Type returnType = parseVoid();
             Location location = location();
             String name = parseIdentifier();
-            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, name));
+            cd.methods.add(parseMethodDeclaration(
+                    location,
+                    annotations,
+                    modifiers,
+                    typeParameters,
+                    returnType,
+                    name,
+                    false));
             return;
         }
 
-        Type returnType = parseTypeWithTypeAuguments();
+        Type returnType = parseTypeWithTypeArguments();
         Location location = location();
         String name = parseIdentifier();
         if (peek("(")) {
-            cd.methods.add(parseMethodDeclaration(location, annotations, modifiers, typeParameters, returnType, name));
+            cd.methods.add(parseMethodDeclaration(
+                    location,
+                    annotations,
+                    modifiers,
+                    typeParameters,
+                    returnType,
+                    name,
+                    hasModifier(cd.modifiers, "@interface")));
             return;
         }
 
@@ -154,12 +175,13 @@ public class Parser {
                 new PrimitiveType(location, Primitive.VOID),
                 "<clinit>",
                 Type.EMPTY_ARRAY,
-                ReferenceType.EMPTY_ARRAY);
+                ReferenceType.EMPTY_ARRAY,
+                null);
         parseMethodBody(methodDeclaration);
         return methodDeclaration;
     }
 
-    private MethodDeclaration parseMethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name) {
+    private MethodDeclaration parseMethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, boolean allowDefaultClause) {
         MethodDeclaration methodDeclaration = new MethodDeclaration(
                 location,
                 annotations,
@@ -168,7 +190,8 @@ public class Parser {
                 returnType,
                 name,
                 parseMethodParameterTypes(),
-                parseMethodExceptionTypes());
+                parseMethodExceptionTypes(),
+                allowDefaultClause && peekRead("default") ? parseAnnotationValue() : null);
         parseMethodBody(methodDeclaration);
         return methodDeclaration;
     }
@@ -180,7 +203,7 @@ public class Parser {
         }
         List<Type> parameterTypes = new ArrayList<>();
         do {
-            parameterTypes.add(parseTypeWithTypeAuguments());
+            parameterTypes.add(parseTypeWithTypeArguments());
         } while (peekRead(","));
         read(")");
         return parameterTypes.toArray(Type.EMPTY_ARRAY);
@@ -415,7 +438,7 @@ public class Parser {
                     md.instructions.add(new LineNumberInsn(location, parseIntegerLiteral(), parseIdentifier()));
                     break;
                 case Constants.LOCAL_VARIABLE:
-                    md.localVariables.add(new LocalVariable(location, parseIdentifier(), parseType(), parseIdentifier(), parseIdentifier(), parseIntegerLiteral()));
+                    md.localVariables.add(new LocalVariable(location, parseIdentifier(), parseTypeWithTypeArguments(), parseIdentifier(), parseIdentifier(), parseIntegerLiteral()));
                     break;
                 case Constants.TRY_CATCH_BLOCK:
                     md.tryCatchBlocks.add(new TryCatchBlock(location, parseIdentifier(), parseIdentifier(), parseIdentifier(), parseReferenceTypeWithTypeArguments()));
@@ -566,18 +589,16 @@ public class Parser {
         String name = parseIdentifier();
         if (peekRead("extends")) {
             List<ReferenceType> bounds = new ArrayList<>();
-            bounds.add(parseReferenceTypeWithTypeArguments());
-            while (peekRead("&")) {
+            do {
                 bounds.add(parseReferenceTypeWithTypeArguments());
-            }
+            } while (peekRead("&"));
             return new TypeParameter(location, name, bounds.toArray(ReferenceType.EMPTY_ARRAY));
         } else if (peekRead("implements")) {
             List<ReferenceType> bounds = new ArrayList<>();
             bounds.add(null);
-            bounds.add(parseReferenceTypeWithTypeArguments());
-            while (peekRead("&")) {
+            do {
                 bounds.add(parseReferenceTypeWithTypeArguments());
-            }
+            } while (peekRead("&"));
             return new TypeParameter(location, name, bounds.toArray(ReferenceType.EMPTY_ARRAY));
         }
         return new TypeParameter(location, name);
@@ -632,7 +653,7 @@ public class Parser {
         return new ReferenceType(location(), parseQualifiedIdentifier(), TypeArgument.EMPTY_ARRAY);
     }
 
-    private Type parseTypeWithTypeAuguments() {
+    private Type parseTypeWithTypeArguments() {
         Location location = location();
         Type type;
         switch (peekRead(PRIMITIVES)) {
@@ -714,7 +735,7 @@ public class Parser {
             }
         }
 
-        Type type = parseTypeWithTypeAuguments();
+        Type type = parseTypeWithTypeArguments();
         if (!(type instanceof TypeArgument)) {
             throw new CompileException("'" + type + "' is not a type argument", location());
         }
@@ -744,9 +765,9 @@ public class Parser {
         Location location = location();
         if (peekRead("(")) {
             if (peek(PRIMITIVES) != -1 && !peek2(TokenType.IDENTIFIER)) {
-                Type type = parseTypeWithTypeAuguments();
-                Value value = parseValue();
+                Type type = parseTypeWithTypeArguments();
                 read(")");
+                Value value = parseValue();
                 return new Cast(location, type, value);
             }
         }
@@ -766,7 +787,7 @@ public class Parser {
         }
 
         if (peek(PRIMITIVES) != -1) {
-            Type type = parseTypeWithTypeAuguments();
+            Type type = parseTypeWithTypeArguments();
             if (peek(".") && peek2("class")) {
                 read();
                 read();
@@ -815,6 +836,15 @@ public class Parser {
     private StringLiteral parseStringLiteral() {
         Token t = read(TokenType.STRING_LITERAL);
         return new StringLiteral(t.getLocation(), t.getText());
+    }
+
+    private static boolean hasModifier(Modifier[] modifiers, String keyword) {
+        for (Modifier modifier : modifiers) {
+            if (modifier.keyword.equals(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Location location() {

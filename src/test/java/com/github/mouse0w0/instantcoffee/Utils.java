@@ -1,6 +1,8 @@
 package com.github.mouse0w0.instantcoffee;
 
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.*;
 
@@ -21,6 +23,12 @@ public class Utils {
     public static String decompile(byte[] bytes) {
         StringWriter sw = new StringWriter();
         Unparser.unparse(Decompiler.decompile(new ClassReader(bytes)), sw);
+        return sw.toString();
+    }
+
+    public static String textify(byte[] bytes) {
+        StringWriter sw = new StringWriter();
+        new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
         return sw.toString();
     }
 

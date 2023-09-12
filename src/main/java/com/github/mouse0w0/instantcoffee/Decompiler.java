@@ -7,12 +7,6 @@ import org.objectweb.asm.*;
 import org.objectweb.asm.signature.SignatureReader;
 import org.objectweb.asm.signature.SignatureVisitor;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,15 +16,6 @@ import java.util.function.Consumer;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Decompiler {
-    public static void main(String[] args) throws IOException {
-        Path file = Paths.get("D:\\Workspace\\Peach\\instant-coffee\\out\\test\\classes\\com\\github\\mouse0w0\\instantcoffee\\GenericTest$Class3.class");
-        try (InputStream input = Files.newInputStream(file)) {
-            StringWriter sw = new StringWriter();
-            Unparser.unparse(Decompiler.decompile(new ClassReader(input)), sw);
-            System.out.println(sw);
-        }
-    }
-
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     public static ClassDeclaration decompile(ClassReader cr) {
@@ -451,6 +436,8 @@ public class Decompiler {
 
         private final Map<Label, LabelInsn> labelMap = new HashMap<>();
 
+        private AnnotationValue defaultValue = null;
+
         public MyMethodVisitor(int access, String name, String descriptor, String signature, String[] exceptions, Consumer<MethodDeclaration> callback) {
             super(Opcodes.ASM9);
             this.modifiers = parseMethodModifiers(access);
@@ -494,7 +481,7 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotationDefault() {
-            throw new UnsupportedOperationException("annotation default");
+            return new ValueAnnotationVisitor(value -> defaultValue = value);
         }
 
         @Override
@@ -577,11 +564,11 @@ public class Decompiler {
 
         @Override
         public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-            //            System.out.append("INVOKEDYNAMIC ")
-            //                    .append(name).append(" ")
-            //                    .append(descriptor).append(" ")
-            //                    .append(bootstrapMethodHandle.toString()).append(" ")
-            //                    .append(Arrays.deepToString(bootstrapMethodArguments)).println();
+            // System.out.append("INVOKEDYNAMIC ")
+            //         .append(name).append(" ")
+            //         .append(descriptor).append(" ")
+            //         .append(bootstrapMethodHandle.toString()).append(" ")
+            //         .append(Arrays.deepToString(bootstrapMethodArguments)).println();
             throw new UnsupportedOperationException("invoke dynamic");
         }
 
@@ -724,6 +711,7 @@ public class Decompiler {
                     name,
                     parameterTypes,
                     exceptionTypes,
+                    defaultValue,
                     instructions,
                     localVariables,
                     tryCatchBlocks
@@ -928,17 +916,17 @@ public class Decompiler {
 
         @Override
         public void visitFormalTypeParameter(String name) {
-            if (visitedFormalTypeParameter) {
-                endTypeParameter();
-                typeArguments.clear();
-                visitedClassBound = false;
-            }
+            endFormalTypeParameter();
             visitedFormalTypeParameter = true;
             typeParameterName = name;
         }
 
-        private void endTypeParameter() {
-            typeParameters.add(new TypeParameter(Location.UNKNOWN, typeParameterName, typeArguments.toArray(ReferenceType.EMPTY_ARRAY)));
+        private void endFormalTypeParameter() {
+            if (visitedFormalTypeParameter) {
+                visitedFormalTypeParameter = false;
+                typeParameters.add(new TypeParameter(Location.UNKNOWN, typeParameterName, typeArguments.toArray(ReferenceType.EMPTY_ARRAY)));
+                typeArguments.clear();
+            }
         }
 
         @Override
@@ -949,22 +937,27 @@ public class Decompiler {
 
         @Override
         public SignatureVisitor visitInterfaceBound() {
-            if (!visitedClassBound) typeArguments.add(null);
+            if (!visitedClassBound) {
+                typeArguments.add(null);
+            }
             return new TypeSignatureVisitor(type -> typeArguments.add((ReferenceType) type));
         }
 
         @Override
         public SignatureVisitor visitParameterType() {
+            endFormalTypeParameter();
             return new TypeSignatureVisitor(parameterTypes::add);
         }
 
         @Override
         public SignatureVisitor visitReturnType() {
+            endFormalTypeParameter();
             return new TypeSignatureVisitor(type -> returnType = type);
         }
 
         @Override
         public SignatureVisitor visitExceptionType() {
+            endFormalTypeParameter();
             return new TypeSignatureVisitor(type -> exceptionTypes.add((ReferenceType) type));
         }
     }

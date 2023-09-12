@@ -111,7 +111,7 @@ public class Scanner {
         }
 
         // Scan operator
-        if (peekRead("(){}[]<>,.@=:-?")) {
+        if (peekRead("(){}[]<>,.@=:-?&")) {
             return TokenType.OPERATOR;
         }
 

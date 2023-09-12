@@ -16,12 +16,13 @@ public class MethodDeclaration extends Located {
     public String name;
     public Type[] parameterTypes;
     public ReferenceType[] exceptionTypes;
+    public AnnotationValue defaultValue;
 
     public List<BaseInsn> instructions;
     public List<LocalVariable> localVariables;
     public List<TryCatchBlock> tryCatchBlocks;
 
-    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes) {
+    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
@@ -30,12 +31,13 @@ public class MethodDeclaration extends Located {
         this.name = name;
         this.parameterTypes = parameterTypes;
         this.exceptionTypes = exceptionTypes;
+        this.defaultValue = defaultValue;
         this.instructions = new ArrayList<>();
         this.localVariables = new ArrayList<>();
         this.tryCatchBlocks = new ArrayList<>();
     }
 
-    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, List<BaseInsn> instructions, List<LocalVariable> localVariables, List<TryCatchBlock> tryCatchBlocks) {
+    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue, List<BaseInsn> instructions, List<LocalVariable> localVariables, List<TryCatchBlock> tryCatchBlocks) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
@@ -44,6 +46,7 @@ public class MethodDeclaration extends Located {
         this.name = name;
         this.parameterTypes = parameterTypes;
         this.exceptionTypes = exceptionTypes;
+        this.defaultValue = defaultValue;
         this.instructions = instructions;
         this.localVariables = localVariables;
         this.tryCatchBlocks = tryCatchBlocks;

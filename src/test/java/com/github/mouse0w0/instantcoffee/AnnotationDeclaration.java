@@ -1,13 +1,13 @@
 package com.github.mouse0w0.instantcoffee;
 
 public @interface AnnotationDeclaration {
-    byte b();
+    byte b() default 127;
 
-    short s();
+    short s() default 32767;
 
-    int i();
+    int i() default 2147483647;
 
-    long l();
+    long l() default 9223372036854775807L;
 
     float f();
 
@@ -19,9 +19,21 @@ public @interface AnnotationDeclaration {
 
     String str();
 
+    Enum enumValue() default Enum.A;
+
+    Anno anno() default @Anno(111);
+
     Class<?> clazz();
 
     Class<?>[] clazzArray();
+
+    enum Enum {
+        A, B, C
+    }
+
+    @interface Anno {
+        int value();
+    }
 
     class Main {
         public static void main(String[] args) {
