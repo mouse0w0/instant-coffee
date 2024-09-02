@@ -9,11 +9,13 @@ import java.util.function.Supplier;
 public class GenericTypeMember {
     private List<?> list;
     private List<String> listString;
-    private List<? extends Number> listNumber;
+    private List<? extends Number> listExtendsNumber;
+    private List<? super Number> listSuperNumber;
 
     private Map<?, ?> map;
     private Map<Object, String> mapString;
-    private Map<Object, ? extends Number> mapNumber;
+    private Map<Object, ? extends Number> mapExtendsNumber;
+    private Map<Object, ? super Number> mapSuperNumber;
 
     private static void method0(Consumer<?> consumer, Supplier<?> supplier) {
     }
