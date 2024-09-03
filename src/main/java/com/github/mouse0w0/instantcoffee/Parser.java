@@ -447,12 +447,23 @@ public class Parser {
                 case Constants.LINE_NUMBER:
                     md.instructions.add(new LineNumberInsn(location, parseIntegerLiteral(), parseIdentifier()));
                     break;
-                case Constants.LOCAL_VARIABLE:
-                    md.localVariables.add(new LocalVariable(location, parseIdentifier(), parseTypeWithTypeArguments(), parseIdentifier(), parseIdentifier(), parseIntegerLiteral()));
+                case Constants.LOCAL_VARIABLE: {
+                    String name = parseIdentifier();
+                    Type type = parseTypeWithTypeArguments();
+                    String start = parseIdentifier();
+                    String end = parseIdentifier();
+                    IntegerLiteral index = parseIntegerLiteral();
+                    md.localVariables.add(new LocalVariable(location, name, type, start, end, index));
                     break;
-                case Constants.TRY_CATCH_BLOCK:
-                    md.tryCatchBlocks.add(new TryCatchBlock(location, parseIdentifier(), parseIdentifier(), parseIdentifier(), parseReferenceTypeWithTypeArguments()));
+                }
+                case Constants.TRY_CATCH_BLOCK: {
+                    String start = parseIdentifier();
+                    String end = parseIdentifier();
+                    String handle = parseIdentifier();
+                    ReferenceType type = peekRead("finally") ? null : parseReferenceTypeWithTypeArguments();
+                    md.tryCatchBlocks.add(new TryCatchBlock(location, start, end, handle, type));
                     break;
+                }
                 default:
                     throw new CompileException("Unknown opcode: " + insn, location);
             }

@@ -471,7 +471,7 @@ public class Compiler {
                 start,
                 end,
                 handler,
-                getInternalName2(tryCatchBlock.type));
+                tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
     private void compileAnnotations(Annotation[] annotations, ClassFile cf) {
