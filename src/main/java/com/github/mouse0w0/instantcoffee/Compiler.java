@@ -734,7 +734,7 @@ public class Compiler {
     }
 
     private boolean checkNoMethodSignature(TypeParameter[] typeParameters, Type[] parameterTypes, Type returnType, Type[] exceptionTypes) {
-        if (typeParameters == null || typeParameters.length != 0) return false;
+        if (typeParameters != null && typeParameters.length != 0) return false;
         for (Type parameterType : parameterTypes) {
             if (!checkNoSignature(parameterType)) return false;
         }
