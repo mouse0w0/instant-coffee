@@ -428,7 +428,7 @@ public class Parser {
                 case Constants.INVOKEVIRTUALINTERFACE:
                 case Constants.INVOKESPECIALINTERFACE:
                 case Constants.INVOKESTATICINTERFACE:
-                    md.instructions.add(new MethodInsn(location, insn, parseType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseType()));
+                    md.instructions.add(new MethodInsn(location, insn, parseType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseVoidOrType()));
                     break;
                 case Constants.INVOKEDYNAMIC:
                     throw new UnsupportedOperationException("invokedynamic");
@@ -612,6 +612,10 @@ public class Parser {
             return new TypeParameter(location, name, bounds.toArray(ReferenceType.EMPTY_ARRAY));
         }
         return new TypeParameter(location, name);
+    }
+
+    private Type parseVoidOrType() {
+        return peek("void") ? parseVoid() : parseType();
     }
 
     private Type parseVoid() {
