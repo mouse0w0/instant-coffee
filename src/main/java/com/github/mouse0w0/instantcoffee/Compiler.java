@@ -266,6 +266,8 @@ public class Compiler {
         for (TryCatchBlock tryCatchBlock : method.tryCatchBlocks) {
             compileTryCatchBlock(tryCatchBlock, labels, mv);
         }
+
+        mv.visitMaxs(0, 0);
         mv.visitEnd();
     }
 
