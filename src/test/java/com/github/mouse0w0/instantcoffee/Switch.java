@@ -62,12 +62,7 @@ public class Switch {
 
     public static class Main {
         public static void main(String[] args) {
-            String decompiled = Utils.decompile(Switch.class);
-            System.out.println(decompiled);
-            byte[] recompiled = Utils.compile(decompiled);
-            String derecompiled = Utils.decompile(recompiled);
-            System.out.println(derecompiled);
-            System.out.println(decompiled.equals(derecompiled));
+            Utils.check(Switch.class);
         }
     }
 }

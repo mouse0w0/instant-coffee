@@ -1,5 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -7,15 +8,21 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class GenericTypeMember {
-    private List<?> list;
+    private List listRaw;
+    private List<?> listWildcard;
     private List<String> listString;
     private List<? extends Number> listExtendsNumber;
     private List<? super Number> listSuperNumber;
+    private List<? extends Serializable> listExtendsSerializable;
+    private List<? super Serializable> listSuperSerializable;
 
-    private Map<?, ?> map;
+    private Map mapRaw;
+    private Map<?, ?> mapWildcard;
     private Map<Object, String> mapString;
     private Map<Object, ? extends Number> mapExtendsNumber;
     private Map<Object, ? super Number> mapSuperNumber;
+    private Map<Object, ? extends Serializable> mapExtendsSerializable;
+    private Map<Object, ? super Serializable> mapSuperSerializable;
 
     private static void method0(Consumer<?> consumer, Supplier<?> supplier) {
     }
@@ -71,12 +78,7 @@ public class GenericTypeMember {
 
     public static class Main {
         public static void main(String[] args) {
-            String decompiled = Utils.decompile(GenericTypeMember.class);
-            System.out.println(decompiled);
-            byte[] recompiled = Utils.compile(decompiled);
-            String derecompiled = Utils.decompile(recompiled);
-            System.out.println(derecompiled);
-            System.out.println(decompiled.equals(derecompiled));
+            Utils.check(GenericTypeMember.class);
         }
     }
 }

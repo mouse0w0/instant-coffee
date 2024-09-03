@@ -9,15 +9,15 @@ public @interface AnnotationDeclaration {
 
     long l() default 9223372036854775807L;
 
-    float f();
+    float f() default 1.0f;
 
-    double d();
+    double d() default 1.0;
 
-    boolean z();
+    boolean z() default true;
 
-    char c();
+    char c() default 'c';
 
-    String str();
+    String string() default "string";
 
     Enum enumValue() default Enum.A;
 
@@ -25,7 +25,7 @@ public @interface AnnotationDeclaration {
 
     Class<?> clazz() default Object.class;
 
-    Class<?>[] clazzArray();
+    Class<?>[] clazzArray() default {Integer.class, Long.class, Float.class, Double.class};
 
     enum Enum {
         A, B, C
@@ -37,12 +37,7 @@ public @interface AnnotationDeclaration {
 
     class Main {
         public static void main(String[] args) {
-            String decompiled = Utils.decompile(AnnotationDeclaration.class);
-            System.out.println(decompiled);
-            byte[] recompiled = Utils.compile(decompiled);
-            String derecompiled = Utils.decompile(recompiled);
-            System.out.println(derecompiled);
-            System.out.println(decompiled.equals(derecompiled));
+            Utils.check(AnnotationDeclaration.class);
         }
     }
 }
