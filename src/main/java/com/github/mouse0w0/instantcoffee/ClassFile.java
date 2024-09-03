@@ -14,7 +14,7 @@ public class ClassFile extends ClassVisitor {
 
     public ClassFile() {
         super(Opcodes.ASM9);
-        cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cv = cw;
     }
 
