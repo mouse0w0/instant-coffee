@@ -419,7 +419,7 @@ public class Parser {
                 case Constants.PUTSTATIC:
                 case Constants.GETFIELD:
                 case Constants.PUTFIELD:
-                    md.instructions.add(new FieldInsn(location, insn, parseType(), parseIdentifier(), parseType()));
+                    md.instructions.add(new FieldInsn(location, insn, parseReferenceType(), parseIdentifier(), parseType()));
                     break;
                 case Constants.INVOKEVIRTUAL:
                 case Constants.INVOKESPECIAL:
@@ -428,7 +428,7 @@ public class Parser {
                 case Constants.INVOKEVIRTUALINTERFACE:
                 case Constants.INVOKESPECIALINTERFACE:
                 case Constants.INVOKESTATICINTERFACE:
-                    md.instructions.add(new MethodInsn(location, insn, parseType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseVoidOrType()));
+                    md.instructions.add(new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseVoidOrType()));
                     break;
                 case Constants.INVOKEDYNAMIC:
                     throw new UnsupportedOperationException("invokedynamic");
@@ -436,7 +436,7 @@ public class Parser {
                 case Constants.ANEWARRAY:
                 case Constants.CHECKCAST:
                 case Constants.INSTANCEOF:
-                    md.instructions.add(new TypeInsn(location, insn, parseType()));
+                    md.instructions.add(new TypeInsn(location, insn, parseReferenceType()));
                     break;
                 case Constants.IINC:
                     md.instructions.add(new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral()));

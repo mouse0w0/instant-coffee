@@ -1,12 +1,12 @@
 package com.github.mouse0w0.instantcoffee.model.insn;
 
 import com.github.mouse0w0.instantcoffee.Location;
-import com.github.mouse0w0.instantcoffee.model.Type;
+import com.github.mouse0w0.instantcoffee.model.ReferenceType;
 
 public class TypeInsn extends BaseInsn {
-    public Type type;
+    public ReferenceType type;
 
-    public TypeInsn(Location location, String opcode, Type type) {
+    public TypeInsn(Location location, String opcode, ReferenceType type) {
         super(location, opcode);
         this.type = type;
     }

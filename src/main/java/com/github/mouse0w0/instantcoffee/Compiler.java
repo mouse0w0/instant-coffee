@@ -39,12 +39,8 @@ public class Compiler {
         return cf;
     }
 
-    private String getInternalName(Type type) {
-        if (type instanceof ReferenceType) {
-            return getInternalName2((ReferenceType) type);
-        } else {
-            throw new InternalCompileException(type.getClass().getName());
-        }
+    private String getInternalName(ReferenceType type) {
+        return getInternalName(type.identifiers);
     }
 
     private String getInternalName(String[] identifiers) {
@@ -56,10 +52,6 @@ public class Compiler {
             stringBuilder.append("/").append(identifiers[i]);
         }
         return stringBuilder.toString();
-    }
-
-    private String getInternalName2(ReferenceType type) {
-        return getInternalName(type.identifiers);
     }
 
     private String getDescriptor(Type type) {
@@ -239,9 +231,9 @@ public class Compiler {
         }
     }
 
-    private String[] getMethodExceptions(Type[] types) {
+    private String[] getMethodExceptions(ReferenceType[] types) {
         List<String> l = new ArrayList<>();
-        for (Type type : types) {
+        for (ReferenceType type : types) {
             l.add(getInternalName(type));
         }
         return l.toArray(EMPTY_STRING_ARRAY);
@@ -471,7 +463,7 @@ public class Compiler {
                 start,
                 end,
                 handler,
-                tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
+                tryCatchBlock.type != null ? getInternalName(tryCatchBlock.type) : null);
     }
 
     private void compileAnnotations(Annotation[] annotations, ClassFile cf) {
