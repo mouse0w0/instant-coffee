@@ -206,28 +206,25 @@ public class Compiler {
 
     private void compileFields(List<FieldDeclaration> fields, ClassFile cf) {
         for (FieldDeclaration field : fields) {
-            int access = getAccess(field.modifiers);
-            String name = field.name;
-            String descriptor = getDescriptor(field.type);
-            String signature = getTypeSignature(field.type);
-            Object value = field.value != null ? getConstantValue(field.value) : null;
-            compileField(field, cf.visitField(access, name, descriptor, signature, value));
+            compileField(field, cf);
         }
     }
 
-    private void compileField(FieldDeclaration field, FieldVisitor fv) {
+    private void compileField(FieldDeclaration field, ClassFile cf) {
+        int access = getAccess(field.modifiers);
+        String name = field.name;
+        String descriptor = getDescriptor(field.type);
+        String signature = getTypeSignature(field.type);
+        Object value = field.value != null ? getConstantValue(field.value) : null;
+        FieldVisitor fv = cf.visitField(access, name, descriptor, signature, value);
+
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
     }
 
     private void compileMethods(List<MethodDeclaration> methods, ClassFile cf) {
         for (MethodDeclaration method : methods) {
-            int access = getAccess(method.modifiers);
-            String name = method.name;
-            String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
-            String signature = getMethodSignature(method.typeParameters, method.parameterTypes, method.returnType, method.exceptionTypes);
-            String[] exceptions = getMethodExceptions(method.exceptionTypes);
-            compileMethod(method, cf.visitMethod(access, name, descriptor, signature, exceptions));
+            compileMethod(method, cf);
         }
     }
 
@@ -239,7 +236,15 @@ public class Compiler {
         return l.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private void compileMethod(MethodDeclaration method, MethodVisitor mv) {
+    private void compileMethod(MethodDeclaration method, ClassFile cf) {
+        int access = getAccess(method.modifiers);
+        String name = method.name;
+        String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
+        String signature = getMethodSignature(method.typeParameters, method.parameterTypes, method.returnType, method.exceptionTypes);
+        String[] exceptions = getMethodExceptions(method.exceptionTypes);
+
+        MethodVisitor mv = cf.visitMethod(access, name, descriptor, signature, exceptions);
+
         compileAnnotations(method.annotations, mv);
         compileMethodDefaultValue(method.defaultValue, mv);
 
@@ -577,11 +582,7 @@ public class Compiler {
     private Number getConstantValue2(IntegerLiteral il) {
         String v = il.value.toLowerCase();
 
-        while (true) {
-            int i = v.indexOf("_");
-            if (i == -1) break;
-            v = v.substring(0, i) + v.substring(i + 1);
-        }
+        v = removeUnderscore(v);
 
         int radix;
         boolean signed;
@@ -614,11 +615,7 @@ public class Compiler {
     private Number getConstantValue2(FloatingPointLiteral fpl) {
         String v = fpl.value.toLowerCase();
 
-        while (true) {
-            int i = v.indexOf("_");
-            if (i == -1) break;
-            v = v.substring(0, i) + v.substring(i + 1);
-        }
+        v = removeUnderscore(v);
 
         if (v.endsWith("f")) {
             v = v.substring(0, v.length() - 1);
@@ -653,6 +650,20 @@ public class Compiler {
             throw new InternalCompileException(fpl.value);
         }
         return dv;
+    }
+
+    private static String removeUnderscore(String s) {
+        int i = s.indexOf('_');
+        if (i == -1) return s;
+
+        int j = 0;
+        StringBuilder sb = new StringBuilder();
+        do {
+            sb.append(s, j, i);
+            j = i + 1;
+            i = s.indexOf('_', j);
+        } while (i != -1);
+        return sb.append(s, j, s.length()).toString();
     }
 
     private Boolean getConstantValue2(BooleanLiteral bl) {
