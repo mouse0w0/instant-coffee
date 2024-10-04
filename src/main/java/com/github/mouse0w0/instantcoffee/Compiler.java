@@ -576,7 +576,7 @@ public class Compiler {
 
     private String getConstantValue2(StringLiteral sl) {
         String v = sl.value;
-        return unescape(v.substring(1, v.length() - 1));
+        return unescape(v.substring(1, v.length() - 1), sl.getLocation());
     }
 
     private Number getConstantValue2(IntegerLiteral il) {
@@ -675,7 +675,7 @@ public class Compiler {
     private Character getConstantValue2(CharacterLiteral cl) {
         String v = cl.value;
 
-        v = unescape(v.substring(1, v.length() - 1));
+        v = unescape(v.substring(1, v.length() - 1), cl.getLocation());
 
         return v.charAt(0);
     }
@@ -939,7 +939,7 @@ public class Compiler {
         }
     }
 
-    private static String unescape(String s) {
+    private static String unescape(String s, Location location) {
         int i = s.indexOf('\\');
         if (i == -1) {
             return s;
@@ -964,7 +964,7 @@ public class Compiler {
             }
 
             int x = Character.digit(c, 8);
-            if (x == -1) throw new CompileException("Invalid escape sequence \"\\" + c + "\"", null);
+            if (x == -1) throw new CompileException("Invalid escape sequence \"\\" + c + "\"", location);
 
             if (i < s.length()) {
                 c = s.charAt(i);
