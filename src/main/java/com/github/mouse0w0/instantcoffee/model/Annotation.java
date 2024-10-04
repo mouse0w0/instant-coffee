@@ -7,11 +7,11 @@ import java.util.StringJoiner;
 public class Annotation extends Located implements AnnotationValue {
     public static final Annotation[] EMPTY_ARRAY = {};
 
-    public Type type;
+    public ReferenceType type;
     public AnnotationValuePair[] pairs;
     public boolean visible;
 
-    public Annotation(Location location, Type type, AnnotationValuePair[] pairs, boolean visible) {
+    public Annotation(Location location, ReferenceType type, AnnotationValuePair[] pairs, boolean visible) {
         super(location);
         this.type = type;
         this.pairs = pairs;

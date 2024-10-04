@@ -718,7 +718,7 @@ public class Decompiler {
     }
 
     private static class NormalAnnotationVisitor extends AnnotationVisitor {
-        private final Type type;
+        private final ReferenceType type;
         private final boolean visible;
 
         private final Consumer<Annotation> callback;
@@ -727,7 +727,7 @@ public class Decompiler {
 
         public NormalAnnotationVisitor(String descriptor, boolean visible, Consumer<Annotation> callback) {
             super(Opcodes.ASM9);
-            this.type = parseTypeDescriptor(descriptor);
+            this.type = parseInternalName(descriptor, 1, descriptor.length() - 1);
             this.visible = visible;
             this.callback = callback;
         }

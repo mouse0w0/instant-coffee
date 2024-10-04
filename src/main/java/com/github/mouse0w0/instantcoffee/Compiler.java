@@ -473,19 +473,19 @@ public class Compiler {
 
     private void compileAnnotations(Annotation[] annotations, ClassFile cf) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, cf.visitAnnotation(getDescriptor(annotation.type), annotation.visible));
+            compileAnnotation(annotation, cf.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
     private void compileAnnotations(Annotation[] annotations, FieldVisitor fv) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, fv.visitAnnotation(getDescriptor(annotation.type), annotation.visible));
+            compileAnnotation(annotation, fv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
     private void compileAnnotations(Annotation[] annotations, MethodVisitor mv) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, mv.visitAnnotation(getDescriptor(annotation.type), annotation.visible));
+            compileAnnotation(annotation, mv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
