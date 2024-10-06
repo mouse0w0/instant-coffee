@@ -23,9 +23,9 @@ public @interface AnnotationDeclaration {
 
     Anno anno() default @Anno(111);
 
-    Class<?> clazz() default Object.class;
+    Class clazz() default Object.class;
 
-    Class<?>[] clazzArray() default {Integer.class, Long.class, Float.class, Double.class};
+    Class[] clazzArray() default {Integer.class, Long.class, Float.class, Double.class};
 
     enum Enum {
         A, B, C
