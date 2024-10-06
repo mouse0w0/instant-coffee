@@ -525,8 +525,8 @@ public class Decompiler {
                     opcodeName,
                     parseInternalName(owner),
                     name,
-                    parameterTypes,
-                    returnType));
+                    new MethodType(Location.UNKNOWN, parameterTypes, returnType)
+            ));
         }
 
         @Override

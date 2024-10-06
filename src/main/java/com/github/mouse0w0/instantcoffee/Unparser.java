@@ -288,9 +288,8 @@ public class Unparser {
     private void unparseMethodInsn(MethodInsn methodInsn, PrintWriter pw) {
         pw.append(INDENT3).append(methodInsn.opcode);
         pw.append(" ").append(methodInsn.owner.toString());
-        pw.append(" ").append(methodInsn.name).append(" (");
-        unparseMethodParameters(methodInsn.parameterTypes, pw);
-        pw.append(")").append(methodInsn.returnType.toString());
+        pw.append(" ").append(methodInsn.name);
+        pw.append(" ").append(methodInsn.methodType.toString());
         pw.println();
     }
 

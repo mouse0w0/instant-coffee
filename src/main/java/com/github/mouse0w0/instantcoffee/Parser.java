@@ -415,7 +415,7 @@ public class Parser {
                 case Constants.INVOKEVIRTUALINTERFACE:
                 case Constants.INVOKESPECIALINTERFACE:
                 case Constants.INVOKESTATICINTERFACE:
-                    md.instructions.add(new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodParameterTypes(), parseVoidOrType()));
+                    md.instructions.add(new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodType()));
                     break;
                 case Constants.INVOKEDYNAMIC:
                     throw new UnsupportedOperationException("invokedynamic");
@@ -455,6 +455,10 @@ public class Parser {
                     throw new CompileException("Unknown opcode: " + insn, location);
             }
         }
+    }
+
+    private MethodType parseMethodType() {
+        return new MethodType(location(), parseMethodParameterTypes(), parseVoidOrType());
     }
 
     private SwitchCase parseSwitchCase() {

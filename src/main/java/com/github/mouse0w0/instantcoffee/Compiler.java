@@ -412,7 +412,7 @@ public class Compiler {
         if (opcode >= INVOKEVIRTUALINTERFACE) {
             opcode -= (INVOKEVIRTUALINTERFACE - INVOKEVIRTUAL);
         }
-        mv.visitMethodInsn(opcode, getInternalName(insn.owner), insn.name, getMethodDescriptor(insn.parameterTypes, insn.returnType), isInterface);
+        mv.visitMethodInsn(opcode, getInternalName(insn.owner), insn.name, getMethodDescriptor(insn.methodType.parameterTypes, insn.methodType.returnType), isInterface);
     }
 
     private void compileJumpInsn(JumpInsn insn, Map<String, Label> labels, MethodVisitor mv) {
