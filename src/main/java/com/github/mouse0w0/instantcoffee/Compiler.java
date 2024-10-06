@@ -15,6 +15,25 @@ public class Compiler {
     private static final String OBJECT = "java/lang/Object";
     private static final String DEPRECATED = "java/lang/Deprecated";
 
+    private Context context;
+
+    private ContextCloseable enterContext(Context context) {
+        ContextCloseable closeable = new ContextCloseable(this.context);
+        this.context = context;
+        return closeable;
+    }
+
+    private final class ContextCloseable implements AutoCloseable {
+        private final Context outerContext;
+
+        public ContextCloseable(Context outerContext) {this.outerContext = outerContext;}
+
+        @Override
+        public void close() {
+            Compiler.this.context = outerContext;
+        }
+    }
+
     public Compiler() {
     }
 
@@ -23,20 +42,22 @@ public class Compiler {
     }
 
     public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
-        int version = getVersion(cd.version);
-        int access = getAccess(cd.modifiers);
-        String name = getInternalName(cd.identifiers);
-        String signature = getClassSignature(cd.typeParameters, cd.superclass, cd.interfaces);
-        String superclass = getSuperclass(cd.superclass);
-        String[] interfaces = getInterfaces(cd.interfaces);
-        cf.visit(version, access, name, signature, superclass, interfaces);
-        compileSource(cd.source, cf);
-        compileAnnotations(cd.annotations, cf);
-        compileInnerClasses(cd.innerClasses, cf);
-        compileFields(cd.fields, cf);
-        compileMethods(cd.methods, cf);
-        cf.visitEnd();
-        return cf;
+        try (ContextCloseable contextCloseable = enterContext(new Context.ClassContext(cd.typeParameters))) {
+            int version = getVersion(cd.version);
+            int access = getAccess(cd.modifiers);
+            String name = getInternalName(cd.identifiers);
+            String signature = getClassSignature(cd.typeParameters, cd.superclass, cd.interfaces);
+            String superclass = getSuperclass(cd.superclass);
+            String[] interfaces = getInterfaces(cd.interfaces);
+            cf.visit(version, access, name, signature, superclass, interfaces);
+            compileSource(cd.source, cf);
+            compileAnnotations(cd.annotations, cf);
+            compileInnerClasses(cd.innerClasses, cf);
+            compileFields(cd.fields, cf);
+            compileMethods(cd.methods, cf);
+            cf.visitEnd();
+            return cf;
+        }
     }
 
     private String getInternalName(ReferenceType type) {
