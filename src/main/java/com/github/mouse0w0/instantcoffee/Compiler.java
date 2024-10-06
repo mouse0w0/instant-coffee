@@ -22,7 +22,7 @@ public class Compiler {
 
     public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
         int version = getVersion(cd.version);
-        int access = getAccess(cd.modifiers);
+        int access = getClassAccess(cd.modifiers);
         String name = getInternalName(cd.identifiers);
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
@@ -112,7 +112,7 @@ public class Compiler {
         return getConstantValue2(literal).intValue() + 44;
     }
 
-    private int getAccess(Modifier[] modifiers) {
+    private int getClassAccess(Modifier[] modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
             String keyword = modifier.keyword;
@@ -128,46 +128,18 @@ public class Compiler {
                 access |= ACC_FINAL;
             } else if ("class".equals(keyword)) {
                 access |= ACC_SUPER;
-            } else if ("synchronized".equals(keyword)) {
-                access |= ACC_SYNCHRONIZED;
-                // } else if ("open".equals(keyword)) {
-                //     access |= ACC_OPEN;
-                // } else if ("transitive".equals(keyword)) {
-                //     access |= ACC_TRANSITIVE;
-            } else if ("volatile".equals(keyword)) {
-                access |= ACC_VOLATILE;
-            } else if ("bridge".equals(keyword)) {
-                access |= ACC_BRIDGE;
-                // } else if ("static".equals(keyword)) {
-                //     access |= ACC_STATIC_PHASE;
-            } else if ("varargs".equals(keyword)) {
-                access |= ACC_VARARGS;
-            } else if ("transient".equals(keyword)) {
-                access |= ACC_TRANSIENT;
-            } else if ("native".equals(keyword)) {
-                access |= ACC_NATIVE;
             } else if ("interface".equals(keyword)) {
                 access |= ACC_INTERFACE | ACC_ABSTRACT;
             } else if ("abstract".equals(keyword)) {
                 access |= ACC_ABSTRACT;
-            } else if ("strictfp".equals(keyword)) {
-                access |= ACC_STRICT;
             } else if ("synthetic".equals(keyword)) {
                 access |= ACC_SYNTHETIC;
             } else if ("@interface".equals(keyword)) {
                 access |= ACC_ANNOTATION | ACC_INTERFACE | ACC_ABSTRACT;
             } else if ("enum".equals(keyword)) {
                 access |= ACC_ENUM | ACC_SUPER | ACC_FINAL;
-            } else if ("mandated".equals(keyword)) {
-                access |= ACC_MANDATED;
-            } else if ("module".equals(keyword)) {
-                access |= ACC_MODULE;
-            } else if ("record".equals(keyword)) {
-                access |= ACC_RECORD | ACC_SUPER | ACC_FINAL;
-            } else if ("deprecated".equals(keyword)) {
-                access |= ACC_DEPRECATED;
             } else {
-                throw new InternalCompileException(keyword);
+                throw new CompileException("Access modifier " + keyword + " not allowed for class", modifier.getLocation());
             }
         }
         return access;
@@ -196,9 +168,40 @@ public class Compiler {
             String outerName = getInternalName(innerClass.outerName);
             String innerName = innerClass.innerName;
             String name = outerName + "$" + innerName;
-            int access = getAccess(innerClass.modifiers);
+            int access = getInnerClassAccess(innerClass.modifiers);
             cf.visitInnerClass(name, outerName, innerName, access);
         }
+    }
+
+    private int getInnerClassAccess(Modifier[] modifiers) {
+        int access = 0;
+        for (Modifier modifier : modifiers) {
+            String keyword = modifier.keyword;
+            if ("public".equals(keyword)) {
+                access |= ACC_PUBLIC;
+            } else if ("private".equals(keyword)) {
+                access |= ACC_PRIVATE;
+            } else if ("protected".equals(keyword)) {
+                access |= ACC_PROTECTED;
+            } else if ("static".equals(keyword)) {
+                access |= ACC_STATIC;
+            } else if ("final".equals(keyword)) {
+                access |= ACC_FINAL;
+            } else if ("interface".equals(keyword)) {
+                access |= ACC_INTERFACE | ACC_ABSTRACT;
+            } else if ("abstract".equals(keyword)) {
+                access |= ACC_ABSTRACT;
+            } else if ("synthetic".equals(keyword)) {
+                access |= ACC_SYNTHETIC;
+            } else if ("@interface".equals(keyword)) {
+                access |= ACC_ANNOTATION | ACC_INTERFACE | ACC_ABSTRACT;
+            } else if ("enum".equals(keyword)) {
+                access |= ACC_ENUM | ACC_FINAL;
+            } else {
+                throw new CompileException("Access modifier " + keyword + " not allowed for inner class", modifier.getLocation());
+            }
+        }
+        return access;
     }
 
     private void compileFields(List<FieldDeclaration> fields, ClassFile cf) {
@@ -208,7 +211,7 @@ public class Compiler {
     }
 
     private void compileField(FieldDeclaration field, ClassFile cf) {
-        int access = getAccess(field.modifiers);
+        int access = getFieldAccess(field.modifiers);
         String name = field.name;
         String descriptor = getDescriptor(field.type);
         Object value = field.value != null ? getConstantValue(field.value) : null;
@@ -216,6 +219,37 @@ public class Compiler {
 
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
+    }
+
+    private int getFieldAccess(Modifier[] modifiers) {
+        int access = 0;
+        for (Modifier modifier : modifiers) {
+            String keyword = modifier.keyword;
+            if ("public".equals(keyword)) {
+                access |= ACC_PUBLIC;
+            } else if ("private".equals(keyword)) {
+                access |= ACC_PRIVATE;
+            } else if ("protected".equals(keyword)) {
+                access |= ACC_PROTECTED;
+            } else if ("static".equals(keyword)) {
+                access |= ACC_STATIC;
+            } else if ("final".equals(keyword)) {
+                access |= ACC_FINAL;
+            } else if ("volatile".equals(keyword)) {
+                access |= ACC_VOLATILE;
+            } else if ("transient".equals(keyword)) {
+                access |= ACC_TRANSIENT;
+            } else if ("synthetic".equals(keyword)) {
+                access |= ACC_SYNTHETIC;
+            } else if ("enum".equals(keyword)) {
+                access |= ACC_ENUM;
+            } else if ("mandated".equals(keyword)) {
+                access |= ACC_MANDATED;
+            } else {
+                throw new CompileException("Access modifier " + keyword + " not allowed for field", modifier.getLocation());
+            }
+        }
+        return access;
     }
 
     private void compileMethods(List<MethodDeclaration> methods, ClassFile cf) {
@@ -233,7 +267,7 @@ public class Compiler {
     }
 
     private void compileMethod(MethodDeclaration method, ClassFile cf) {
-        int access = getAccess(method.modifiers);
+        int access = getMethodAccess(method.modifiers);
         String name = method.name;
         String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
@@ -261,6 +295,43 @@ public class Compiler {
 
         mv.visitMaxs(0, 0);
         mv.visitEnd();
+    }
+
+    private int getMethodAccess(Modifier[] modifiers) {
+        int access = 0;
+        for (Modifier modifier : modifiers) {
+            String keyword = modifier.keyword;
+            if ("public".equals(keyword)) {
+                access |= ACC_PUBLIC;
+            } else if ("private".equals(keyword)) {
+                access |= ACC_PRIVATE;
+            } else if ("protected".equals(keyword)) {
+                access |= ACC_PROTECTED;
+            } else if ("static".equals(keyword)) {
+                access |= ACC_STATIC;
+            } else if ("final".equals(keyword)) {
+                access |= ACC_FINAL;
+            } else if ("synchronized".equals(keyword)) {
+                access |= ACC_SYNCHRONIZED;
+            } else if ("bridge".equals(keyword)) {
+                access |= ACC_BRIDGE;
+            } else if ("varargs".equals(keyword)) {
+                access |= ACC_VARARGS;
+            } else if ("native".equals(keyword)) {
+                access |= ACC_NATIVE;
+            } else if ("abstract".equals(keyword)) {
+                access |= ACC_ABSTRACT;
+            } else if ("strictfp".equals(keyword)) {
+                access |= ACC_STRICT;
+            } else if ("synthetic".equals(keyword)) {
+                access |= ACC_SYNTHETIC;
+            } else if ("mandated".equals(keyword)) {
+                access |= ACC_MANDATED;
+            } else {
+                throw new CompileException("Access modifier " + keyword + " not allowed for method", modifier.getLocation());
+            }
+        }
+        return access;
     }
 
     private void compileMethodDefaultValue(AnnotationValue defaultValue, MethodVisitor mv) {

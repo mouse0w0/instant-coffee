@@ -83,8 +83,6 @@ public class Decompiler {
         else if ((access & ACC_PROTECTED) != 0)
             l.add(new Modifier(Location.UNKNOWN, "protected"));
 
-        if ((access & ACC_SYNTHETIC) != 0)
-            l.add(new Modifier(Location.UNKNOWN, "synthetic"));
         if ((access & ACC_STATIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "static"));
         if ((access & ACC_FINAL) != 0)
@@ -93,6 +91,8 @@ public class Decompiler {
             l.add(new Modifier(Location.UNKNOWN, "volatile"));
         if ((access & ACC_TRANSIENT) != 0)
             l.add(new Modifier(Location.UNKNOWN, "transient"));
+        if ((access & ACC_SYNTHETIC) != 0)
+            l.add(new Modifier(Location.UNKNOWN, "synthetic"));
         if ((access & ACC_ENUM) != 0)
             l.add(new Modifier(Location.UNKNOWN, "enum"));
         if ((access & ACC_MANDATED) != 0)
