@@ -573,11 +573,9 @@ public class Parser {
 
     private String[] parseQualifiedIdentifier() {
         List<String> result = new ArrayList<>();
-        result.add(parseIdentifier());
-        while (peek(".") && peek2(TokenType.IDENTIFIER)) {
-            read();
+        do {
             result.add(parseIdentifier());
-        }
+        } while (peekRead("."));
         return result.toArray(Constants.EMPTY_STRING_ARRAY);
     }
 
@@ -697,13 +695,17 @@ public class Parser {
         }
 
         if (peek(TokenType.IDENTIFIER)) {
-            String[] identifiers = parseQualifiedIdentifier();
-            if (peek(".") && peek2("class")) {
-                read();
-                read();
-                return new ClassLiteral(location, new ReferenceType(location, identifiers));
+            List<String> identifiers = new ArrayList<>();
+            identifiers.add(parseIdentifier());
+            while (peekRead(".")) {
+                String identifier = parseIdentifier();
+                if ("class".equals(identifier)) {
+                    return new ClassLiteral(location, new ReferenceType(location, identifiers.toArray(Constants.EMPTY_STRING_ARRAY)));
+                } else {
+                    identifiers.add(identifier);
+                }
             }
-            return new AmbiguousName(location, identifiers);
+            return new AmbiguousName(location, identifiers.toArray(Constants.EMPTY_STRING_ARRAY));
         }
 
         throw new CompileException("Unexpected token \"" + read().getText() + "\"", location);
