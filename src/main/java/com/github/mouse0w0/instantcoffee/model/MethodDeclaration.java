@@ -11,7 +11,6 @@ public class MethodDeclaration extends Located {
 
     public Annotation[] annotations;
     public Modifier[] modifiers;
-    public TypeParameter[] typeParameters;
     public Type returnType;
     public String name;
     public Type[] parameterTypes;
@@ -22,11 +21,10 @@ public class MethodDeclaration extends Located {
     public List<LocalVariable> localVariables;
     public List<TryCatchBlock> tryCatchBlocks;
 
-    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue) {
+    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
-        this.typeParameters = typeParameters;
         this.returnType = returnType;
         this.name = name;
         this.parameterTypes = parameterTypes;
@@ -37,11 +35,10 @@ public class MethodDeclaration extends Located {
         this.tryCatchBlocks = new ArrayList<>();
     }
 
-    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, TypeParameter[] typeParameters, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue, List<BaseInsn> instructions, List<LocalVariable> localVariables, List<TryCatchBlock> tryCatchBlocks) {
+    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue, List<BaseInsn> instructions, List<LocalVariable> localVariables, List<TryCatchBlock> tryCatchBlocks) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
-        this.typeParameters = typeParameters;
         this.returnType = returnType;
         this.name = name;
         this.parameterTypes = parameterTypes;

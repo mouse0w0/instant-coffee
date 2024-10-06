@@ -4,8 +4,6 @@ import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.insn.*;
 import org.objectweb.asm.*;
-import org.objectweb.asm.signature.SignatureVisitor;
-import org.objectweb.asm.signature.SignatureWriter;
 
 import java.util.*;
 
@@ -26,10 +24,9 @@ public class Compiler {
         int version = getVersion(cd.version);
         int access = getAccess(cd.modifiers);
         String name = getInternalName(cd.identifiers);
-        String signature = getClassSignature(cd.typeParameters, cd.superclass, cd.interfaces);
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
-        cf.visit(version, access, name, signature, superclass, interfaces);
+        cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
         compileSource(cd.source, cf);
         compileAnnotations(cd.annotations, cf);
         compileInnerClasses(cd.innerClasses, cf);
@@ -214,9 +211,8 @@ public class Compiler {
         int access = getAccess(field.modifiers);
         String name = field.name;
         String descriptor = getDescriptor(field.type);
-        String signature = getTypeSignature(field.type);
         Object value = field.value != null ? getConstantValue(field.value) : null;
-        FieldVisitor fv = cf.visitField(access, name, descriptor, signature, value);
+        FieldVisitor fv = cf.visitField(access, name, descriptor, null, value); // TODO: signature
 
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
@@ -240,10 +236,9 @@ public class Compiler {
         int access = getAccess(method.modifiers);
         String name = method.name;
         String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
-        String signature = getMethodSignature(method.typeParameters, method.parameterTypes, method.returnType, method.exceptionTypes);
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
-        MethodVisitor mv = cf.visitMethod(access, name, descriptor, signature, exceptions);
+        MethodVisitor mv = cf.visitMethod(access, name, descriptor, null, exceptions); // TODO: signature
 
         compileAnnotations(method.annotations, mv);
         compileMethodDefaultValue(method.defaultValue, mv);
@@ -445,7 +440,7 @@ public class Compiler {
         mv.visitLocalVariable(
                 localVariable.name,
                 getDescriptor(localVariable.type),
-                getTypeSignature(localVariable.type),
+                null, // TODO: signature
                 start,
                 end,
                 getConstantValue2(localVariable.index).intValue());
@@ -682,170 +677,6 @@ public class Compiler {
 
     private Object getConstantValue2(NullLiteral nl) {
         return null;
-    }
-
-    private String getClassSignature(TypeParameter[] typeParameters, ReferenceType superclass, ReferenceType[] interfaces) {
-        if (checkNoClassSignature(typeParameters, superclass, interfaces)) {
-            return null;
-        }
-
-        SignatureWriter sw = new SignatureWriter();
-        visitTypeParameters(typeParameters, sw);
-
-        if (superclass == null) {
-            sw.visitSuperclass();
-            sw.visitClassType(OBJECT);
-            sw.visitEnd();
-        } else {
-            visitTypeSignature(superclass, sw.visitSuperclass());
-        }
-
-        for (ReferenceType inte : interfaces) {
-            visitTypeSignature(inte, sw.visitInterface());
-        }
-        return sw.toString();
-    }
-
-    private boolean checkNoClassSignature(TypeParameter[] typeParameters, ReferenceType superclass, ReferenceType[] interfaces) {
-        if (typeParameters != null && typeParameters.length != 0) return false;
-        if (!checkNoSignature(superclass)) return false;
-        for (ReferenceType inte : interfaces) {
-            if (!checkNoSignature(inte)) return false;
-        }
-        return true;
-    }
-
-    private String getMethodSignature(TypeParameter[] typeParameters, Type[] parameterTypes, Type returnType, Type[] exceptionTypes) {
-        if (checkNoMethodSignature(typeParameters, parameterTypes, returnType, exceptionTypes)) {
-            return null;
-        }
-
-        SignatureWriter sw = new SignatureWriter();
-        visitTypeParameters(typeParameters, sw);
-
-        for (Type parameterType : parameterTypes) {
-            visitTypeSignature(parameterType, sw.visitParameterType());
-        }
-
-        visitTypeSignature(returnType, sw.visitReturnType());
-
-        for (Type exceptionType : exceptionTypes) {
-            visitTypeSignature(exceptionType, sw.visitExceptionType());
-        }
-
-        return sw.toString();
-    }
-
-    private boolean checkNoMethodSignature(TypeParameter[] typeParameters, Type[] parameterTypes, Type returnType, Type[] exceptionTypes) {
-        if (typeParameters != null && typeParameters.length != 0) return false;
-        for (Type parameterType : parameterTypes) {
-            if (!checkNoSignature(parameterType)) return false;
-        }
-        if (!checkNoSignature(returnType)) return false;
-        for (Type exceptionType : exceptionTypes) {
-            if (!checkNoSignature(exceptionType)) return false;
-        }
-        return true;
-    }
-
-    private String getTypeSignature(Type type) {
-        if (checkNoSignature(type)) {
-            return null;
-        }
-        SignatureWriter sw = new SignatureWriter();
-        visitTypeSignature(type, sw);
-        return sw.toString();
-    }
-
-    private boolean checkNoSignature(Type type) {
-        if (type instanceof ReferenceType) {
-            return ((ReferenceType) type).typeArguments.length == 0;
-        } else if (type instanceof ArrayType) {
-            return checkNoSignature(((ArrayType) type).componentType);
-        } else {
-            return true;
-        }
-    }
-
-    private void visitTypeParameters(TypeParameter[] typeParameters, SignatureVisitor sw) {
-        if (typeParameters == null) return;
-        for (TypeParameter typeParameter : typeParameters) {
-            visitTypeParameter(typeParameter, sw);
-        }
-    }
-
-    private void visitTypeParameter(TypeParameter typeParameter, SignatureVisitor sw) {
-        sw.visitFormalTypeParameter(typeParameter.name);
-        ReferenceType[] bounds = typeParameter.bounds;
-        if (bounds.length != 0) {
-            if (bounds[0] != null) {
-                visitTypeSignature(bounds[0], sw.visitClassBound());
-            }
-            for (int i = 1; i < bounds.length; i++) {
-                visitTypeSignature(bounds[i], sw.visitInterfaceBound());
-            }
-        }
-    }
-
-    private void visitTypeSignature(Type type, SignatureVisitor sw) {
-        if (type instanceof ArrayType) {
-            ArrayType at = (ArrayType) type;
-            visitTypeSignature(at.componentType, sw.visitArrayType());
-        } else if (type instanceof ReferenceType) {
-            ReferenceType rt = (ReferenceType) type;
-            sw.visitClassType(getInternalName(rt.identifiers));
-            for (TypeArgument typeArgument : rt.typeArguments) {
-                if (typeArgument instanceof ReferenceType) {
-                    visitTypeSignature((ReferenceType) typeArgument, sw.visitTypeArgument(SignatureVisitor.INSTANCEOF));
-                } else if (typeArgument instanceof ArrayType) {
-                    ArrayType at = (ArrayType) typeArgument;
-                    visitTypeSignature(at.componentType, sw.visitArrayType());
-                } else if (typeArgument instanceof Wildcard) {
-                    Wildcard w = (Wildcard) typeArgument;
-                    int bounds = w.bounds;
-                    if (bounds == Wildcard.BOUNDS_NONE) {
-                        sw.visitTypeArgument();
-                    } else if (bounds == Wildcard.BOUNDS_EXTENDS) {
-                        visitTypeSignature(w.type, sw.visitTypeArgument(SignatureVisitor.EXTENDS));
-                    } else if (bounds == Wildcard.BOUNDS_SUPER) {
-                        visitTypeSignature(w.type, sw.visitTypeArgument(SignatureVisitor.SUPER));
-                    }
-                }
-            }
-            sw.visitEnd();
-        } else if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).primitive) {
-                case VOID:
-                    sw.visitBaseType('V');
-                    return;
-                case BOOLEAN:
-                    sw.visitBaseType('Z');
-                    return;
-                case CHAR:
-                    sw.visitBaseType('C');
-                    return;
-                case BYTE:
-                    sw.visitBaseType('B');
-                    return;
-                case SHORT:
-                    sw.visitBaseType('S');
-                    return;
-                case INT:
-                    sw.visitBaseType('I');
-                    return;
-                case FLOAT:
-                    sw.visitBaseType('F');
-                    return;
-                case LONG:
-                    sw.visitBaseType('J');
-                    return;
-                case DOUBLE:
-                    sw.visitBaseType('D');
-                    return;
-                default:
-                    throw new InternalCompileException("primitive");
-            }
-        }
     }
 
     private void push(boolean value, MethodVisitor mv) {

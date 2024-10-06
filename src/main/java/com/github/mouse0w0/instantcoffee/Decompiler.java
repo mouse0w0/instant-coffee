@@ -4,8 +4,6 @@ import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.insn.*;
 import org.objectweb.asm.*;
-import org.objectweb.asm.signature.SignatureReader;
-import org.objectweb.asm.signature.SignatureVisitor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,7 +26,6 @@ public class Decompiler {
                 cv.annotations.toArray(Annotation.EMPTY_ARRAY),
                 cv.modifiers,
                 cv.identifiers,
-                cv.typeParameters,
                 cv.superclass,
                 cv.interfaces,
                 cv.source,
@@ -201,12 +198,6 @@ public class Decompiler {
         return parseTypeDescriptor(type.getDescriptor());
     }
 
-    private static Type parseTypeSignature(String signature) {
-        TypeSignatureVisitor sv = new TypeSignatureVisitor();
-        new SignatureReader(signature).acceptType(sv);
-        return sv.result;
-    }
-
     private static Value parseValue(Object value) {
         if (value == null) {
             return new NullLiteral(Location.UNKNOWN);
@@ -265,7 +256,6 @@ public class Decompiler {
         private IntegerLiteral version;
         private Modifier[] modifiers;
         private String[] identifiers;
-        private TypeParameter[] typeParameters;
 
         private ReferenceType superclass;
         private ReferenceType[] interfaces;
@@ -286,23 +276,13 @@ public class Decompiler {
             this.version = parseVersion(version);
             this.modifiers = parseClassModifiers(access);
             this.identifiers = parseIdentifiers(name);
+            this.superclass = "java/lang/Object".equals(superName) ? null : new ReferenceType(Location.UNKNOWN, parseIdentifiers(superName));
 
-            if (signature != null) {
-                ClassSignatureVisitor csv = new ClassSignatureVisitor();
-                new SignatureReader(signature).accept(csv);
-                this.typeParameters = csv.typeParameters.toArray(TypeParameter.EMPTY_ARRAY);
-                this.superclass = csv.superclass;
-                this.interfaces = csv.interfaces.toArray(ReferenceType.EMPTY_ARRAY);
-            } else {
-                this.typeParameters = TypeParameter.EMPTY_ARRAY;
-                this.superclass = "java/lang/Object".equals(superName) ? null : new ReferenceType(Location.UNKNOWN, parseIdentifiers(superName));
-
-                List<ReferenceType> l = new ArrayList<>();
-                for (String s : interfaces) {
-                    l.add(new ReferenceType(Location.UNKNOWN, parseIdentifiers(s)));
-                }
-                this.interfaces = l.toArray(ReferenceType.EMPTY_ARRAY);
+            List<ReferenceType> l = new ArrayList<>();
+            for (String s : interfaces) {
+                l.add(new ReferenceType(Location.UNKNOWN, parseIdentifiers(s)));
             }
+            this.interfaces = l.toArray(ReferenceType.EMPTY_ARRAY);
         }
 
         @Override
@@ -389,7 +369,7 @@ public class Decompiler {
         public MyFieldVisitor(int access, String name, String descriptor, String signature, Object value, Consumer<FieldDeclaration> callback) {
             super(Opcodes.ASM9);
             this.modifiers = parseFieldModifiers(access);
-            this.type = signature != null ? parseTypeSignature(signature) : parseTypeDescriptor(descriptor);
+            this.type = parseTypeDescriptor(descriptor);
             this.name = name;
             this.value = parseValue(value);
             this.callback = callback;
@@ -419,7 +399,6 @@ public class Decompiler {
     private static class MyMethodVisitor extends MethodVisitor {
         private final Modifier[] modifiers;
         private final String name;
-        private final TypeParameter[] typeParameters;
 
         private final Type[] parameterTypes;
         private final Type returnType;
@@ -440,34 +419,24 @@ public class Decompiler {
             super(Opcodes.ASM9);
             this.modifiers = parseMethodModifiers(access);
             this.name = name;
-            if (signature != null) {
-                MethodSignatureVisitor msv = new MethodSignatureVisitor();
-                new SignatureReader(signature).accept(msv);
-                this.typeParameters = msv.typeParameters.toArray(TypeParameter.EMPTY_ARRAY);
-                this.parameterTypes = msv.parameterTypes.toArray(Type.EMPTY_ARRAY);
-                this.returnType = msv.returnType;
-                this.exceptionTypes = msv.exceptionTypes.toArray(ReferenceType.EMPTY_ARRAY);
+
+            org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
+            Type[] parameterTypes = new Type[parameters.length];
+            for (int i = 0; i < parameters.length; i++) {
+                parameterTypes[i] = parseType(parameters[i]);
+            }
+            this.parameterTypes = parameterTypes;
+
+            this.returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
+
+            if (exceptions != null) {
+                ReferenceType[] exceptionTypes = new ReferenceType[exceptions.length];
+                for (int i = 0; i < exceptionTypes.length; i++) {
+                    exceptionTypes[i] = parseInternalName(exceptions[i]);
+                }
+                this.exceptionTypes = exceptionTypes;
             } else {
-                this.typeParameters = TypeParameter.EMPTY_ARRAY;
-
-                org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
-                Type[] parameterTypes = new Type[parameters.length];
-                for (int i = 0; i < parameters.length; i++) {
-                    parameterTypes[i] = parseType(parameters[i]);
-                }
-                this.parameterTypes = parameterTypes;
-
-                this.returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
-
-                if (exceptions != null) {
-                    ReferenceType[] exceptionTypes = new ReferenceType[exceptions.length];
-                    for (int i = 0; i < exceptionTypes.length; i++) {
-                        exceptionTypes[i] = parseInternalName(exceptions[i]);
-                    }
-                    this.exceptionTypes = exceptionTypes;
-                } else {
-                    this.exceptionTypes = ReferenceType.EMPTY_ARRAY;
-                }
+                this.exceptionTypes = ReferenceType.EMPTY_ARRAY;
             }
             this.callback = callback;
         }
@@ -674,7 +643,7 @@ public class Decompiler {
             localVariables.add(new LocalVariable(
                     Location.UNKNOWN,
                     name,
-                    signature != null ? parseTypeSignature(signature) : parseTypeDescriptor(descriptor),
+                    parseTypeDescriptor(descriptor),
                     getLabel(start).name,
                     getLabel(end).name,
                     parseIntegerLiteral(index)));
@@ -704,7 +673,6 @@ public class Decompiler {
                     Location.UNKNOWN,
                     annotations.toArray(Annotation.EMPTY_ARRAY),
                     modifiers,
-                    typeParameters,
                     returnType,
                     name,
                     parameterTypes,
@@ -831,227 +799,6 @@ public class Decompiler {
         @Override
         public void visitEnd() {
             callback.accept(new AnnotationValueArrayInitializer(Location.UNKNOWN, values.toArray(AnnotationValue.EMPTY_ARRAY)));
-        }
-    }
-
-    private static class ClassSignatureVisitor extends SignatureVisitor {
-        private final List<TypeParameter> typeParameters = new ArrayList<>();
-
-        private boolean visitedFormalTypeParameter;
-        private String typeParameterName;
-        private final List<ReferenceType> typeArguments = new ArrayList<>();
-        private boolean visitedClassBound;
-
-        private ReferenceType superclass;
-        private final List<ReferenceType> interfaces = new ArrayList<>();
-
-        public ClassSignatureVisitor() {
-            super(Opcodes.ASM9);
-        }
-
-        @Override
-        public void visitFormalTypeParameter(String name) {
-            if (visitedFormalTypeParameter) {
-                endFormalTypeParameter();
-            }
-            visitedFormalTypeParameter = true;
-            typeParameterName = name;
-        }
-
-        private void endFormalTypeParameter() {
-            typeParameters.add(new TypeParameter(Location.UNKNOWN, typeParameterName, typeArguments.toArray(ReferenceType.EMPTY_ARRAY)));
-            typeArguments.clear();
-            visitedClassBound = false;
-            visitedFormalTypeParameter = false;
-        }
-
-        @Override
-        public SignatureVisitor visitClassBound() {
-            visitedClassBound = true;
-            return new TypeSignatureVisitor(type -> typeArguments.add((ReferenceType) type));
-        }
-
-        @Override
-        public SignatureVisitor visitInterfaceBound() {
-            if (!visitedClassBound) {
-                typeArguments.add(null);
-            }
-            return new TypeSignatureVisitor(type -> typeArguments.add((ReferenceType) type));
-        }
-
-        @Override
-        public SignatureVisitor visitSuperclass() {
-            if (visitedFormalTypeParameter) {
-                endFormalTypeParameter();
-            }
-            return new TypeSignatureVisitor(type -> superclass = (ReferenceType) type);
-        }
-
-        @Override
-        public SignatureVisitor visitInterface() {
-            if (visitedFormalTypeParameter) {
-                endFormalTypeParameter();
-            }
-            return new TypeSignatureVisitor(type -> interfaces.add((ReferenceType) type));
-        }
-    }
-
-    private static class MethodSignatureVisitor extends SignatureVisitor {
-        private final List<TypeParameter> typeParameters = new ArrayList<>();
-
-        private boolean visitedFormalTypeParameter;
-        private String typeParameterName;
-        private final List<ReferenceType> typeArguments = new ArrayList<>();
-        private boolean visitedClassBound;
-
-        private final List<Type> parameterTypes = new ArrayList<>();
-        private Type returnType;
-        private final List<ReferenceType> exceptionTypes = new ArrayList<>();
-
-        public MethodSignatureVisitor() {
-            super(Opcodes.ASM9);
-        }
-
-        @Override
-        public void visitFormalTypeParameter(String name) {
-            endFormalTypeParameter();
-            visitedFormalTypeParameter = true;
-            typeParameterName = name;
-        }
-
-        private void endFormalTypeParameter() {
-            if (visitedFormalTypeParameter) {
-                visitedFormalTypeParameter = false;
-                typeParameters.add(new TypeParameter(Location.UNKNOWN, typeParameterName, typeArguments.toArray(ReferenceType.EMPTY_ARRAY)));
-                typeArguments.clear();
-            }
-        }
-
-        @Override
-        public SignatureVisitor visitClassBound() {
-            visitedClassBound = true;
-            return new TypeSignatureVisitor(type -> typeArguments.add((ReferenceType) type));
-        }
-
-        @Override
-        public SignatureVisitor visitInterfaceBound() {
-            if (!visitedClassBound) {
-                typeArguments.add(null);
-            }
-            return new TypeSignatureVisitor(type -> typeArguments.add((ReferenceType) type));
-        }
-
-        @Override
-        public SignatureVisitor visitParameterType() {
-            endFormalTypeParameter();
-            return new TypeSignatureVisitor(parameterTypes::add);
-        }
-
-        @Override
-        public SignatureVisitor visitReturnType() {
-            endFormalTypeParameter();
-            return new TypeSignatureVisitor(type -> returnType = type);
-        }
-
-        @Override
-        public SignatureVisitor visitExceptionType() {
-            endFormalTypeParameter();
-            return new TypeSignatureVisitor(type -> exceptionTypes.add((ReferenceType) type));
-        }
-    }
-
-    private static class TypeSignatureVisitor extends SignatureVisitor {
-        private final Consumer<Type> callback;
-
-        private Type result;
-
-        public TypeSignatureVisitor(Consumer<Type> callback) {
-            super(Opcodes.ASM9);
-            this.callback = callback;
-        }
-
-        public TypeSignatureVisitor() {
-            super(Opcodes.ASM9);
-            this.callback = type -> result = type;
-        }
-
-        @Override
-        public void visitBaseType(char descriptor) {
-            switch (descriptor) {
-                case 'V':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.VOID));
-                    break;
-                case 'Z':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN));
-                    break;
-                case 'C':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.CHAR));
-                    break;
-                case 'B':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.BYTE));
-                    break;
-                case 'S':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.SHORT));
-                    break;
-                case 'I':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.INT));
-                    break;
-                case 'F':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT));
-                    break;
-                case 'J':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.LONG));
-                    break;
-                case 'D':
-                    callback.accept(new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE));
-                    break;
-            }
-        }
-
-        @Override
-        public void visitTypeVariable(String name) {
-            callback.accept(parseInternalName(name));
-        }
-
-        @Override
-        public SignatureVisitor visitArrayType() {
-            return new TypeSignatureVisitor(type -> callback.accept(new ArrayType(Location.UNKNOWN, type)));
-        }
-
-        private String[] identifiers;
-        private final List<TypeArgument> typeArguments = new ArrayList<>();
-
-        @Override
-        public void visitClassType(String name) {
-            identifiers = parseIdentifiers(name);
-        }
-
-        @Override
-        public void visitTypeArgument() {
-            typeArguments.add(new Wildcard(Location.UNKNOWN));
-        }
-
-        @Override
-        public SignatureVisitor visitTypeArgument(char wildcard) {
-            if (wildcard == INSTANCEOF) {
-                return new TypeSignatureVisitor(type -> typeArguments.add((TypeArgument) type));
-            } else if (wildcard == EXTENDS) {
-                return new TypeSignatureVisitor(type -> typeArguments.add(new Wildcard(Location.UNKNOWN, Wildcard.BOUNDS_EXTENDS, (ReferenceType) type)));
-            } else if (wildcard == SUPER) {
-                return new TypeSignatureVisitor(type -> typeArguments.add(new Wildcard(Location.UNKNOWN, Wildcard.BOUNDS_SUPER, (ReferenceType) type)));
-            } else {
-                throw new IllegalArgumentException("wildcard");
-            }
-        }
-
-        @Override
-        public void visitInnerClassType(String name) {
-            throw new UnsupportedOperationException("inner class type");
-        }
-
-        @Override
-        public void visitEnd() {
-            callback.accept(new ReferenceType(Location.UNKNOWN, identifiers, typeArguments.toArray(TypeArgument.EMPTY_ARRAY)));
         }
     }
 }

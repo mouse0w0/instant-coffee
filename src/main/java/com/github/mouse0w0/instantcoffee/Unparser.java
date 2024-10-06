@@ -49,7 +49,6 @@ public class Unparser {
         unparseAnnotations(cd.annotations, NO_INDENT, pw);
         unparseModifiers(cd.modifiers, pw);
         unparseIdentifiers(cd.identifiers, pw);
-        unparseTypeParameters(cd.typeParameters, pw);
         unparseSuperclass(cd.superclass, pw);
         unparseInterfaces(cd.interfaces, pw);
         pw.println(" {");
@@ -78,35 +77,6 @@ public class Unparser {
             pw.append(identifiers[0]);
             for (int i = 1; i < identifiers.length; i++) {
                 pw.append(".").append(identifiers[i]);
-            }
-        }
-    }
-
-    private void unparseTypeParameters(TypeParameter[] typeParameters, PrintWriter pw) {
-        if (typeParameters.length == 0) return;
-        pw.append("<");
-        unparseTypeParameter(typeParameters[0], pw);
-        for (int i = 1; i < typeParameters.length; i++) {
-            pw.append(", ");
-            unparseTypeParameter(typeParameters[i], pw);
-        }
-        pw.append(">");
-    }
-
-    private void unparseTypeParameter(TypeParameter typeParameter, PrintWriter pw) {
-        pw.append(typeParameter.name);
-        ReferenceType[] bounds = typeParameter.bounds;
-        if (bounds.length != 0) {
-            if (bounds[0] != null) {
-                pw.append(" extends ").append(bounds[0].toString());
-                for (int i = 1; i < bounds.length; i++) {
-                    pw.append(" & ").append(bounds[i].toString());
-                }
-            } else {
-                pw.append(" implements ").append(bounds[1].toString());
-                for (int i = 2; i < bounds.length; i++) {
-                    pw.append(" & ").append(bounds[i].toString());
-                }
             }
         }
     }
@@ -212,10 +182,6 @@ public class Unparser {
         } else {
             pw.append(INDENT);
             unparseModifiers(md.modifiers, pw);
-            unparseTypeParameters(md.typeParameters, pw);
-            if (md.typeParameters.length != 0) {
-                pw.append(" ");
-            }
             if ("<init>".equals(md.name)) {
                 pw.append("<init>");
             } else {
