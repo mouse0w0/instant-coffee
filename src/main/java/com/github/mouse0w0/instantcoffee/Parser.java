@@ -665,14 +665,11 @@ public class Parser {
     }
 
     private Value parseValue() {
-        Location location = location();
-        if (peek("(")) {
-            return parseCast();
-        }
-
         if (peek(LITERALS) != -1) {
             return parseLiteral();
         }
+
+        Location location = location();
 
         if (peekRead("void")) {
             if (peek(".") && peek2("class")) {
@@ -708,15 +705,6 @@ public class Parser {
         }
 
         throw new CompileException("Unexpected token \"" + read().getText() + "\"", location);
-    }
-
-    private Cast parseCast() {
-        Location location = location();
-        read("(");
-        Type type = parseType();
-        read(")");
-        Value value = parseValue();
-        return new Cast(location, type, value);
     }
 
     private Literal parseLiteral() {

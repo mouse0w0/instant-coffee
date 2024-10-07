@@ -125,7 +125,7 @@ public class Scanner {
     private TokenType scanNumericLiteral() {
         if (peekRead('0')) {
             // 0L
-            if (peekRead("lL")) return TokenType.INTEGER_LITERAL;
+            if (peekRead("bBsSlL")) return TokenType.INTEGER_LITERAL;
 
             // 0F or 0D
             if (peekRead("fFdD")) return TokenType.FLOATING_POINT_LITERAL;
@@ -170,7 +170,7 @@ public class Scanner {
                     return TokenType.FLOATING_POINT_LITERAL;
                 }
 
-                peekRead("lL");
+                peekRead("bBsSlL");
                 return TokenType.INTEGER_LITERAL;
             }
 
@@ -189,7 +189,7 @@ public class Scanner {
                     throw new CompileException("Digit '" + (char) peek() + "' not allowed in binary literal", location());
                 }
 
-                peekRead("lL");
+                peekRead("bBsSlL");
                 return TokenType.INTEGER_LITERAL;
             }
 
@@ -204,7 +204,7 @@ public class Scanner {
                     throw new CompileException("Digit '" + (char) peek() + "' not allowed in octal literal", location());
                 }
 
-                peekRead("lL");
+                peekRead("bBsSlL");
                 return TokenType.INTEGER_LITERAL;
             }
 
@@ -223,7 +223,7 @@ public class Scanner {
 
             while (isDecimalDigit(peek()) || (peek() == '_' && (peek2() == '_' || isDecimalDigit(peek2())))) read();
 
-            if (peekRead("lL")) return TokenType.INTEGER_LITERAL;
+            if (peekRead("bBsSlL")) return TokenType.INTEGER_LITERAL;
 
             if (peekRead("fFdD")) return TokenType.FLOATING_POINT_LITERAL;
 

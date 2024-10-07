@@ -206,9 +206,9 @@ public class Decompiler {
         } else if (value instanceof org.objectweb.asm.Type) {
             return new ClassLiteral(Location.UNKNOWN, parseTypeDescriptor(value.toString()));
         } else if (value instanceof Byte) {
-            return new Cast(Location.UNKNOWN, new PrimitiveType(Location.UNKNOWN, Primitive.BYTE), new IntegerLiteral(Location.UNKNOWN, value.toString()));
+            return new IntegerLiteral(Location.UNKNOWN, value + "B");
         } else if (value instanceof Short) {
-            return new Cast(Location.UNKNOWN, new PrimitiveType(Location.UNKNOWN, Primitive.SHORT), new IntegerLiteral(Location.UNKNOWN, value.toString()));
+            return new IntegerLiteral(Location.UNKNOWN, value + "S");
         } else if (value instanceof Integer) {
             return new IntegerLiteral(Location.UNKNOWN, value.toString());
         } else if (value instanceof Long) {

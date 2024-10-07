@@ -589,9 +589,7 @@ public class Compiler {
     }
 
     private Object getConstantValue(Value value) {
-        if (value instanceof Cast) {
-            return getConstantValue2((Cast) value);
-        } else if (value instanceof StringLiteral) {
+        if (value instanceof StringLiteral) {
             return getConstantValue2((StringLiteral) value);
         } else if (value instanceof ClassLiteral) {
             return getConstantValue2((ClassLiteral) value);
@@ -608,32 +606,6 @@ public class Compiler {
         } else {
             throw new InternalCompileException(value.getClass().getName());
         }
-    }
-
-    private Object getConstantValue2(Cast cast) {
-        Object v = getConstantValue(cast.value);
-
-        if (v instanceof Number && cast.type instanceof PrimitiveType) {
-            Number n = (Number) v;
-            switch (((PrimitiveType) cast.type).primitive) {
-                case CHAR:
-                    return (char) n.intValue();
-                case BYTE:
-                    return n.byteValue();
-                case SHORT:
-                    return n.shortValue();
-                case INT:
-                    return n.intValue();
-                case LONG:
-                    return n.longValue();
-                case FLOAT:
-                    return n.floatValue();
-                case DOUBLE:
-                    return n.doubleValue();
-            }
-        }
-
-        throw new CompileException("Cannot cast " + v.getClass().getName() + " to " + cast.type, cast.getLocation());
     }
 
     private org.objectweb.asm.Type getConstantValue2(ClassLiteral cl) {
@@ -670,11 +642,35 @@ public class Compiler {
             signed = true;
         }
 
-        if (v.endsWith("l")) {
+        if (v.endsWith("b")) {
+            v = v.substring(0, v.length() - 1);
+            return signed ? Byte.parseByte(v, radix) : parseUnsignedByte(v, radix);
+        } else if (v.endsWith("s")) {
+            v = v.substring(0, v.length() - 1);
+            return signed ? Short.parseShort(v, radix) : parseUnsignedShort(v, radix);
+        } else if (v.endsWith("l")) {
             v = v.substring(0, v.length() - 1);
             return signed ? Long.parseLong(v, radix) : Long.parseUnsignedLong(v, radix);
         } else {
             return signed ? Integer.parseInt(v, radix) : Integer.parseUnsignedInt(v, radix);
+        }
+    }
+
+    private static byte parseUnsignedByte(String s, int radix) {
+        int uint = Integer.parseUnsignedInt(s, radix);
+        if ((uint & 0xFFFF_FF00) == 0) {
+            return (byte) uint;
+        } else {
+            throw new NumberFormatException("String value " + s + " exceeds range of unsigned byte.");
+        }
+    }
+
+    private static short parseUnsignedShort(String s, int radix) {
+        int uint = Integer.parseUnsignedInt(s, radix);
+        if ((uint & 0xFFFF_0000) == 0) {
+            return (short) uint;
+        } else {
+            throw new NumberFormatException("String value " + s + " exceeds range of unsigned short.");
         }
     }
 
