@@ -8,12 +8,7 @@ import java.io.Writer;
 import java.util.List;
 
 public class Unparser {
-    private static final String NO_INDENT = "";
-    private static final String INDENT = "  ";
-    private static final String INDENT2 = INDENT + INDENT;
-    private static final String INDENT3 = INDENT2 + INDENT;
-    private static final String INDENT4 = INDENT3 + INDENT;
-
+    private String indent = "  ";
     private boolean skipLineNumber;
     private boolean skipLocalVariable;
 
@@ -23,6 +18,14 @@ public class Unparser {
 
     public static void unparse(ClassDeclaration cd, PrintWriter pw) {
         new Unparser().unparseClass(cd, pw);
+    }
+
+    public String getIndent() {
+        return indent;
+    }
+
+    public void setIndent(String indent) {
+        this.indent = indent;
     }
 
     public boolean isSkipLineNumber() {
@@ -41,12 +44,33 @@ public class Unparser {
         this.skipLocalVariable = skipLocalVariable;
     }
 
+    private int depth;
+
+    private void push() {
+        depth++;
+    }
+
+    private void pop() {
+        if (depth == 0) {
+            throw new IllegalStateException();
+        }
+        depth--;
+    }
+
+    private PrintWriter appendIndent(PrintWriter pw) {
+        for (int i = 0; i < depth; i++) {
+            pw.append(indent);
+        }
+        return pw;
+    }
+
     public void unparseClass(ClassDeclaration cd, Writer writer) {
         unparseClass(cd, new PrintWriter(writer));
     }
 
     public void unparseClass(ClassDeclaration cd, PrintWriter pw) {
-        unparseAnnotations(cd.annotations, NO_INDENT, pw);
+        unparseAnnotations(cd.annotations, pw);
+        push();
         unparseModifiers(cd.modifiers, pw);
         unparseIdentifiers(cd.identifiers, pw);
         unparseSuperclass(cd.superclass, pw);
@@ -64,6 +88,7 @@ public class Unparser {
             unparseMethod(method, pw);
         }
         pw.println("}");
+        pop();
     }
 
     private void unparseModifiers(Modifier[] modifiers, PrintWriter pw) {
@@ -97,9 +122,9 @@ public class Unparser {
         }
     }
 
-    private void unparseAnnotations(Annotation[] annotations, String indent, PrintWriter pw) {
+    private void unparseAnnotations(Annotation[] annotations, PrintWriter pw) {
         for (Annotation annotation : annotations) {
-            pw.append(indent);
+            appendIndent(pw);
             unparseAnnotation(annotation, pw);
             pw.println();
         }
@@ -141,20 +166,20 @@ public class Unparser {
 
     private void unparseVersion(IntegerLiteral version, PrintWriter pw) {
         pw.println();
-        pw.append(INDENT).append("version ").append(version.value);
+        appendIndent(pw).append("version ").append(version.value);
         pw.println();
     }
 
     private void unparseSource(SourceDeclaration sd, PrintWriter pw) {
         if (sd == null) return;
         pw.println();
-        pw.append(INDENT).append("source ").append(sd.file.toString());
+        appendIndent(pw).append("source ").append(sd.file.toString());
         pw.println();
     }
 
     private void unparseInnerClass(InnerClassDeclaration icd, PrintWriter pw) {
         pw.println();
-        pw.append(INDENT);
+        appendIndent(pw);
         unparseModifiers(icd.modifiers, pw);
         pw.append("innerclass ");
         unparseIdentifiers(icd.outerName, pw);
@@ -164,8 +189,8 @@ public class Unparser {
 
     private void unparseField(FieldDeclaration fd, PrintWriter pw) {
         pw.println();
-        unparseAnnotations(fd.annotations, INDENT, pw);
-        pw.append(INDENT);
+        unparseAnnotations(fd.annotations, pw);
+        appendIndent(pw);
         unparseModifiers(fd.modifiers, pw);
         pw.append(fd.type.toString()).append(" ").append(fd.name);
         if (!(fd.value instanceof NullLiteral)) {
@@ -176,11 +201,11 @@ public class Unparser {
 
     private void unparseMethod(MethodDeclaration md, PrintWriter pw) {
         pw.println();
-        unparseAnnotations(md.annotations, INDENT, pw);
+        unparseAnnotations(md.annotations, pw);
         if ("<clinit>".equals(md.name)) {
-            pw.append(INDENT).append("static");
+            appendIndent(pw).append("static");
         } else {
-            pw.append(INDENT);
+            appendIndent(pw);
             unparseModifiers(md.modifiers, pw);
             if ("<init>".equals(md.name)) {
                 pw.append("<init>");
@@ -200,10 +225,14 @@ public class Unparser {
         }
 
         pw.println(" {");
+        push();
+        push();
         unparseInstructions(md.instructions, pw);
         unparseLocalVariables(md.localVariables, pw);
         unparseTryCatchBlocks(md.tryCatchBlocks, pw);
-        pw.append(INDENT).println("}");
+        pop();
+        pop();
+        appendIndent(pw).println("}");
     }
 
     private void unparseMethodParameters(Type[] parameterTypes, PrintWriter pw) {
@@ -262,23 +291,23 @@ public class Unparser {
     }
 
     private void unparseInsn(Insn insn, PrintWriter pw) {
-        pw.append(INDENT3).append(insn.opcode).println();
+        appendIndent(pw).append(insn.opcode).println();
     }
 
     private void unparseIntInsn(IntInsn intInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(intInsn.opcode).append(" ").append(intInsn.operand.toString()).println();
+        appendIndent(pw).append(intInsn.opcode).append(" ").append(intInsn.operand.toString()).println();
     }
 
     private void unparseVarInsn(VarInsn varInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(varInsn.opcode).append(" ").append(varInsn.var.toString()).println();
+        appendIndent(pw).append(varInsn.opcode).append(" ").append(varInsn.var.toString()).println();
     }
 
     private void unparseTypeInsn(TypeInsn typeInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(typeInsn.opcode).append(" ").append(typeInsn.type.toString()).println();
+        appendIndent(pw).append(typeInsn.opcode).append(" ").append(typeInsn.type.toString()).println();
     }
 
     private void unparseFieldInsn(FieldInsn fieldInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(fieldInsn.opcode);
+        appendIndent(pw).append(fieldInsn.opcode);
         pw.append(" ").append(fieldInsn.owner.toString());
         pw.append(" ").append(fieldInsn.name);
         pw.append(" ").append(fieldInsn.type.toString());
@@ -286,7 +315,7 @@ public class Unparser {
     }
 
     private void unparseMethodInsn(MethodInsn methodInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(methodInsn.opcode);
+        appendIndent(pw).append(methodInsn.opcode);
         pw.append(" ").append(methodInsn.owner.toString());
         pw.append(" ").append(methodInsn.name);
         pw.append(" ").append(methodInsn.methodType.toString());
@@ -294,35 +323,39 @@ public class Unparser {
     }
 
     private void unparseJumpInsn(JumpInsn jumpInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(jumpInsn.opcode).append(" ").append(jumpInsn.label).println();
+        appendIndent(pw).append(jumpInsn.opcode).append(" ").append(jumpInsn.label).println();
     }
 
     private void unparseLabelInsn(LabelInsn labelInsn, PrintWriter pw) {
-        pw.append(INDENT2).append(labelInsn.name).append(":").println();
+        pop();
+        appendIndent(pw).append(labelInsn.name).append(":").println();
+        push();
     }
 
     private void unparseLdcInsn(LdcInsn ldcInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(ldcInsn.opcode).append(" ").append(ldcInsn.value.toString()).println();
+        appendIndent(pw).append(ldcInsn.opcode).append(" ").append(ldcInsn.value.toString()).println();
     }
 
     private void unparseIincInsn(IincInsn iincInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(iincInsn.opcode);
+        appendIndent(pw).append(iincInsn.opcode);
         pw.append(" ").append(iincInsn.var.toString());
         pw.append(" ").append(iincInsn.increment.toString());
         pw.println();
     }
 
     private void unparseSwitchInsn(SwitchInsn switchInsn, PrintWriter pw) {
-        pw.append(INDENT3).append("switch {").println();
+        appendIndent(pw).append("switch {").println();
+        push();
         for (SwitchCase cas : switchInsn.cases) {
-            pw.append(INDENT4).append(cas.key.toString()).append(" : ").append(cas.label).println();
+            appendIndent(pw).append(cas.key.toString()).append(": ").append(cas.label).println();
         }
-        pw.append(INDENT4).append("default : ").append(switchInsn.dflt).println();
-        pw.append(INDENT3).append("}").println();
+        appendIndent(pw).append("default: ").append(switchInsn.dflt).println();
+        pop();
+        appendIndent(pw).append("}").println();
     }
 
     private void unparseMultiANewArrayInsn(MultiANewArrayInsn multiANewArrayInsn, PrintWriter pw) {
-        pw.append(INDENT3).append(multiANewArrayInsn.opcode);
+        appendIndent(pw).append(multiANewArrayInsn.opcode);
         pw.append(" ").append(multiANewArrayInsn.type.toString());
         pw.append(" ").append(multiANewArrayInsn.numDimensions.toString());
         pw.println();
@@ -330,7 +363,7 @@ public class Unparser {
 
     private void unparseLineNumberInsn(LineNumberInsn lineNumberInsn, PrintWriter pw) {
         if (skipLineNumber) return;
-        pw.append(INDENT3).append("line");
+        appendIndent(pw).append("line");
         pw.append(" ").append(lineNumberInsn.line.toString());
         pw.append(" ").append(lineNumberInsn.label);
         pw.println();
@@ -339,7 +372,7 @@ public class Unparser {
     private void unparseLocalVariables(List<LocalVariable> localVariables, PrintWriter pw) {
         if (skipLocalVariable) return;
         for (LocalVariable localVariable : localVariables) {
-            pw.append(INDENT3).append("var");
+            appendIndent(pw).append("var");
             pw.append(" ").append(localVariable.name);
             pw.append(" ").append(localVariable.type.toString());
             pw.append(" ").append(localVariable.start);
@@ -351,7 +384,7 @@ public class Unparser {
 
     private void unparseTryCatchBlocks(List<TryCatchBlock> tryCatchBlocks, PrintWriter pw) {
         for (TryCatchBlock tryCatchBlock : tryCatchBlocks) {
-            pw.append(INDENT3).append("try");
+            appendIndent(pw).append("try");
             pw.append(" ").append(tryCatchBlock.start);
             pw.append(" ").append(tryCatchBlock.end);
             pw.append(" ").append(tryCatchBlock.handler);
