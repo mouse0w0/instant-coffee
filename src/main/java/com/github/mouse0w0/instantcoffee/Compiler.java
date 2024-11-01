@@ -1,5 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
+import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
+import com.github.mouse0w0.instantcoffee.model.Handle;
 import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.insn.*;
@@ -100,12 +102,26 @@ public class Compiler {
         return "L" + getInternalName(type.identifiers) + ";";
     }
 
+    private String getMethodDescriptor(MethodType type) {
+        return getMethodDescriptor(type.parameterTypes, type.returnType);
+    }
+
     private String getMethodDescriptor(Type[] parameterTypes, Type returnType) {
         StringBuilder stringBuilder = new StringBuilder("(");
         for (Type parameterType : parameterTypes) {
             stringBuilder.append(getDescriptor(parameterType));
         }
         return stringBuilder.append(")").append(getDescriptor(returnType)).toString();
+    }
+
+    private String getHandleDescriptor(HandleType type) {
+        if (type instanceof Type) {
+            return getDescriptor((Type) type);
+        } else if (type instanceof MethodType) {
+            return getMethodDescriptor((MethodType) type);
+        } else {
+            throw new InternalCompileException(type.getClass().getName());
+        }
     }
 
     private int getVersion(IntegerLiteral literal) {
@@ -367,6 +383,8 @@ public class Compiler {
             compileFieldInsn((FieldInsn) insn, mv);
         } else if (insn instanceof MethodInsn) {
             compileMethodInsn((MethodInsn) insn, mv);
+        } else if (insn instanceof InvokeDynamicInsn) {
+            compileInvokeDynamicInsn((InvokeDynamicInsn) insn, mv);
         } else if (insn instanceof JumpInsn) {
             compileJumpInsn((JumpInsn) insn, labels, mv);
         } else if (insn instanceof LabelInsn) {
@@ -387,32 +405,40 @@ public class Compiler {
     }
 
     private void compileInsn(Insn insn, MethodVisitor mv) {
-        mv.visitInsn(nameToOpcode(insn.opcode));
+        mv.visitInsn(getOpcode(insn.opcode));
     }
 
     private void compileIntInsn(IntInsn insn, MethodVisitor mv) {
-        mv.visitVarInsn(nameToOpcode(insn.opcode), getConstantValue2(insn.operand).intValue());
+        mv.visitVarInsn(getOpcode(insn.opcode), getConstantValue2(insn.operand).intValue());
     }
 
     private void compileVarInsn(VarInsn insn, MethodVisitor mv) {
-        mv.visitVarInsn(nameToOpcode(insn.opcode), getConstantValue2(insn.var).intValue());
+        mv.visitVarInsn(getOpcode(insn.opcode), getConstantValue2(insn.var).intValue());
     }
 
     private void compileTypeInsn(TypeInsn insn, MethodVisitor mv) {
-        mv.visitTypeInsn(nameToOpcode(insn.opcode), getInternalName(insn.type));
+        mv.visitTypeInsn(getOpcode(insn.opcode), getInternalName(insn.type));
     }
 
     private void compileFieldInsn(FieldInsn insn, MethodVisitor mv) {
-        mv.visitFieldInsn(nameToOpcode(insn.opcode), getInternalName(insn.owner), insn.name, getDescriptor(insn.type));
+        mv.visitFieldInsn(getOpcode(insn.opcode), getInternalName(insn.owner), insn.name, getDescriptor(insn.type));
     }
 
     private void compileMethodInsn(MethodInsn insn, MethodVisitor mv) {
-        int opcode = nameToOpcode(insn.opcode);
-        boolean isInterface = opcode >= INVOKEINTERFACE;
-        if (opcode >= INVOKEVIRTUALINTERFACE) {
-            opcode -= (INVOKEVIRTUALINTERFACE - INVOKEVIRTUAL);
+        int opcode = getOpcode(insn.opcode);
+        boolean isInterface = opcode == INVOKEINTERFACE || (opcode & FLAG_INTERFACE) != 0;
+        if (isInterface) {
+            opcode &= 0xFF;
         }
         mv.visitMethodInsn(opcode, getInternalName(insn.owner), insn.name, getMethodDescriptor(insn.methodType.parameterTypes, insn.methodType.returnType), isInterface);
+    }
+
+    private void compileInvokeDynamicInsn(InvokeDynamicInsn insn, MethodVisitor mv) {
+        String name = insn.name;
+        String descriptor = getMethodDescriptor(insn.methodType);
+        org.objectweb.asm.Handle bootstrapMethod = getConstantValue2(insn.bootstrapMethod);
+        Object[] bootstrapMethodArguments = getConstantValues(insn.bootstrapMethodArguments);
+        mv.visitInvokeDynamicInsn(name, descriptor, bootstrapMethod, bootstrapMethodArguments);
     }
 
     private void compileJumpInsn(JumpInsn insn, Map<String, Label> labels, MethodVisitor mv) {
@@ -420,7 +446,7 @@ public class Compiler {
         if (label == null) {
             throw new CompileException("Undefined label: " + insn.label, insn.getLocation());
         }
-        mv.visitJumpInsn(nameToOpcode(insn.opcode), label);
+        mv.visitJumpInsn(getOpcode(insn.opcode), label);
     }
 
     private void compileLabelInsn(LabelInsn labelInsn, Map<String, Label> labels, MethodVisitor mv) {
@@ -603,6 +629,12 @@ public class Compiler {
             return getConstantValue2((CharacterLiteral) value);
         } else if (value instanceof NullLiteral) {
             return getConstantValue2((NullLiteral) value);
+        } else if (value instanceof MethodType) {
+            return getConstantValue2((MethodType) value);
+        } else if (value instanceof Handle) {
+            return getConstantValue2((Handle) value);
+        } else if (value instanceof ConstantDynamic) {
+            return getConstantValue2((ConstantDynamic) value);
         } else {
             throw new InternalCompileException(value.getClass().getName());
         }
@@ -744,6 +776,35 @@ public class Compiler {
 
     private Object getConstantValue2(NullLiteral nl) {
         return null;
+    }
+
+    private org.objectweb.asm.Type getConstantValue2(MethodType mt) {
+        return org.objectweb.asm.Type.getMethodType(getMethodDescriptor(mt));
+    }
+
+    private org.objectweb.asm.Handle getConstantValue2(Handle h) {
+        int kind = getHandleKind(h.kind);
+        String owner = getInternalName(h.owner);
+        String name = h.name;
+        String descriptor = getHandleDescriptor(h.type);
+        boolean isInterface = (kind & FLAG_INTERFACE) != 0;
+        return new org.objectweb.asm.Handle(kind & 0xFF, owner, name, descriptor, isInterface);
+    }
+
+    private org.objectweb.asm.ConstantDynamic getConstantValue2(ConstantDynamic cd) {
+        String name = cd.name;
+        String descriptor = getDescriptor(cd.type);
+        org.objectweb.asm.Handle bootstrapMethod = getConstantValue2(cd.bootstrapMethod);
+        Object[] bootstrapMethodArguments = getConstantValues(cd.bootstrapMethodArguments);
+        return new org.objectweb.asm.ConstantDynamic(name, descriptor, bootstrapMethod, bootstrapMethodArguments);
+    }
+
+    private Object[] getConstantValues(Value[] values) {
+        Object[] a = new Object[values.length];
+        for (int i = 0; i < values.length; i++) {
+            a[i] = getConstantValue(values[i]);
+        }
+        return a;
     }
 
     private void push(boolean value, MethodVisitor mv) {

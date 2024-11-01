@@ -270,6 +270,8 @@ public class Unparser {
                 unparseFieldInsn((FieldInsn) insn, pw);
             } else if (insn instanceof MethodInsn) {
                 unparseMethodInsn((MethodInsn) insn, pw);
+            } else if (insn instanceof InvokeDynamicInsn) {
+                unparseInvokeDynamicInsn((InvokeDynamicInsn) insn, pw);
             } else if (insn instanceof JumpInsn) {
                 unparseJumpInsn((JumpInsn) insn, pw);
             } else if (insn instanceof LabelInsn) {
@@ -320,6 +322,17 @@ public class Unparser {
         pw.append(" ").append(methodInsn.name);
         pw.append(" ").append(methodInsn.methodType.toString());
         pw.println();
+    }
+
+    private void unparseInvokeDynamicInsn(InvokeDynamicInsn invokeDynamicInsn, PrintWriter pw) {
+        appendIndent(pw).append(invokeDynamicInsn.opcode).append(" {").println();
+        push();
+        appendIndent(pw).append(invokeDynamicInsn.name).println();
+        appendIndent(pw).append(invokeDynamicInsn.methodType.toString()).println();
+        appendIndent(pw); unparseHandle(invokeDynamicInsn.bootstrapMethod, pw); pw.println();
+        unparseBootstrapMethodArguments(invokeDynamicInsn.bootstrapMethodArguments, pw);
+        pop();
+        appendIndent(pw).append("}").println();
     }
 
     private void unparseJumpInsn(JumpInsn jumpInsn, PrintWriter pw) {
@@ -391,6 +404,57 @@ public class Unparser {
             pw.append(" ").append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
             pw.println();
         }
+    }
+
+    private void unparseValue(Value value, PrintWriter pw) {
+        if (value instanceof Literal) {
+            pw.append(value.toString());
+        } else if (value instanceof ClassLiteral) {
+            pw.append(value.toString());
+        } else if (value instanceof MethodType) {
+            pw.append(value.toString());
+        } else if (value instanceof Handle) {
+            unparseHandle((Handle) value, pw);
+        } else if (value instanceof ConstantDynamic) {
+            unparseConstantDynamic((ConstantDynamic) value, pw);
+        }
+    }
+
+    private void unparseHandle(Handle handle, PrintWriter pw) {
+        pw.append("Handle {").println();
+        push();
+        appendIndent(pw).append(handle.kind).println();
+        appendIndent(pw).append(handle.owner.toString()).println();
+        appendIndent(pw).append(handle.name).println();
+        appendIndent(pw).append(handle.type.toString()).println();
+        pop();
+        appendIndent(pw).append("}");
+    }
+
+    private void unparseConstantDynamic(ConstantDynamic constantDynamic, PrintWriter pw) {
+        pw.append("ConstantDynamic {").println();
+        push();
+        appendIndent(pw).append(constantDynamic.name).println();
+        appendIndent(pw).append(constantDynamic.type.toString()).println();
+        appendIndent(pw); unparseHandle(constantDynamic.bootstrapMethod, pw); pw.println();
+        unparseBootstrapMethodArguments(constantDynamic.bootstrapMethodArguments, pw);
+        pop();
+        appendIndent(pw).append("}");
+    }
+
+    private void unparseBootstrapMethodArguments(Value[] arguments, PrintWriter pw) {
+        appendIndent(pw).append("{").println();
+        push();
+        if (arguments.length > 0) {
+            appendIndent(pw); unparseValue(arguments[0], pw);
+            for (int i = 1; i < arguments.length; i++) {
+                pw.append(",").println();
+                appendIndent(pw); unparseValue(arguments[i], pw);
+            }
+            pw.println();
+        }
+        pop();
+        appendIndent(pw).append("}").println();
     }
 
     private boolean hasModifier(Modifier[] modifiers, String keyword) {

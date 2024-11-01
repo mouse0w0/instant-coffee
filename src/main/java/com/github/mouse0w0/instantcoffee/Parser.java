@@ -227,8 +227,7 @@ public class Parser {
                 continue;
             }
 
-            int opcode = Constants.nameToOpcode(insn);
-            switch (opcode) {
+            switch (Constants.getOpcode(insn) & 0xFF) {
                 case Constants.NOP:
                 case Constants.ACONST_NULL:
                 case Constants.ICONST_M1:
@@ -412,13 +411,13 @@ public class Parser {
                 case Constants.INVOKESPECIAL:
                 case Constants.INVOKESTATIC:
                 case Constants.INVOKEINTERFACE:
-                case Constants.INVOKEVIRTUALINTERFACE:
-                case Constants.INVOKESPECIALINTERFACE:
-                case Constants.INVOKESTATICINTERFACE:
                     md.instructions.add(new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodType()));
                     break;
                 case Constants.INVOKEDYNAMIC:
-                    throw new UnsupportedOperationException("invokedynamic");
+                    read("{");
+                    md.instructions.add(new InvokeDynamicInsn(location, parseIdentifier(), parseMethodType(), parseHandle(), parseBootstrapMethodArguments()));
+                    read("}");
+                    break;
                 case Constants.NEW:
                 case Constants.ANEWARRAY:
                 case Constants.CHECKCAST:
@@ -455,10 +454,6 @@ public class Parser {
                     throw new CompileException("Unknown opcode: " + insn, location);
             }
         }
-    }
-
-    private MethodType parseMethodType() {
-        return new MethodType(location(), parseMethodParameterTypes(), parseVoidOrType());
     }
 
     private SwitchCase parseSwitchCase() {
@@ -665,12 +660,29 @@ public class Parser {
     }
 
     private Value parseValue() {
+        // Parse handle
+        if (peek("Handle")) {
+            return parseHandle();
+        }
+
+        // Parse constant dynamic
+        if (peek("ConstantDynamic")) {
+            return parseConstantDynamic();
+        }
+
+        // Parse method type
+        if (peek("(")) {
+            return parseMethodType();
+        }
+
+        // Parse literal
         if (peek(LITERALS) != -1) {
             return parseLiteral();
         }
 
         Location location = location();
 
+        // Parse void class
         if (peekRead("void")) {
             if (peek(".") && peek2("class")) {
                 read();
@@ -680,6 +692,7 @@ public class Parser {
             throw new CompileException("Unexpected token \"void\"", location);
         }
 
+        // Parse primitive class
         if (peek(PRIMITIVES) != -1) {
             Type type = parseType();
             if (peek(".") && peek2("class")) {
@@ -690,6 +703,7 @@ public class Parser {
             throw new CompileException("Unexpected token", location);
         }
 
+        // Parse reference class or ambiguous name
         if (peek(TokenType.IDENTIFIER)) {
             List<String> identifiers = new ArrayList<>();
             identifiers.add(parseIdentifier());
@@ -705,6 +719,65 @@ public class Parser {
         }
 
         throw new CompileException("Unexpected token \"" + read().getText() + "\"", location);
+    }
+
+    private MethodType parseMethodType() {
+        return new MethodType(location(), parseMethodParameterTypes(), parseVoidOrType());
+    }
+
+    private Handle parseHandle() {
+        Location location = location();
+        read("Handle");
+        read("{");
+        String kind = parseIdentifier();
+        ReferenceType owner = parseReferenceType();
+        String name = parseIdentifier();
+        HandleType type;
+        switch (kind) {
+            case "getfield":
+            case "getstatic":
+            case "putfield":
+            case "putstatic":
+                type = parseType();
+                break;
+            case "invokevirtual":
+            case "invokestatic":
+            case "invokespecial":
+            case "newinvokespecial":
+            case "invokeinterface":
+            case "invokevirtualinterface":
+            case "invokestaticinterface":
+            case "invokespecialinterface":
+            case "newinvokespecialinterface":
+                type = parseMethodType();
+                break;
+            default:
+                throw new CompileException("Unknown handle kind \"" + kind + "\"", location);
+        }
+        read("}");
+        return new Handle(location, kind, owner, name, type);
+    }
+
+    private ConstantDynamic parseConstantDynamic() {
+        Location location = location();
+        read("ConstantDynamic");
+        read("{");
+        String identifier = parseIdentifier();
+        Type type = parseType();
+        Handle bootstrapMethod = parseHandle();
+        Value[] bootstrapMethodArguments = parseBootstrapMethodArguments();
+        read("}");
+        return new ConstantDynamic(location, identifier, type, bootstrapMethod, bootstrapMethodArguments);
+    }
+
+    private Value[] parseBootstrapMethodArguments() {
+        List<Value> arguments = new ArrayList<>();
+        read("{");
+        do {
+            arguments.add(parseValue());
+        } while (peekRead(","));
+        read("}");
+        return arguments.toArray(Value.EMPTY_ARRAY);
     }
 
     private Literal parseLiteral() {

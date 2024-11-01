@@ -8,8 +8,9 @@ import java.util.Map;
 public class Constants implements Opcodes {
     public static final String[] EMPTY_STRING_ARRAY = {};
 
-    private static final Map<Integer, String> opcodeToName = new HashMap<>();
-    private static final Map<String, Integer> nameToOpcode = new HashMap<>();
+    public static final int NOT_FOUND = -1;
+
+    public static final int FLAG_INTERFACE = 0x100;
 
     //    public static final int LDC_W = 19;
     //    public static final int LDC2_W = 20;
@@ -58,14 +59,26 @@ public class Constants implements Opcodes {
     //    public static final int JSR_W = 201;
 
     public static final int SWITCH = 202;
-    public static final int INVOKEVIRTUALINTERFACE = 203;
-    public static final int INVOKESPECIALINTERFACE = 204;
-    public static final int INVOKESTATICINTERFACE = 205;
-    public static final int LINE_NUMBER = 206;
-    public static final int LOCAL_VARIABLE = 207;
-    public static final int TRY_CATCH_BLOCK = 208;
+    public static final int LINE_NUMBER = 203;
+    public static final int LOCAL_VARIABLE = 204;
+    public static final int TRY_CATCH_BLOCK = 205;
 
-    public static final int OPCODE_NOT_FOUND = -1;
+    private static final Map<Integer, String> opcodeToName = new HashMap<>();
+    private static final Map<String, Integer> nameToOpcode = new HashMap<>();
+
+    public static String getOpcodeName(int opcode) {
+        return opcodeToName.get(opcode);
+    }
+
+    public static int getOpcode(String name) {
+        Integer opcode = nameToOpcode.get(name);
+        return opcode != null ? opcode : NOT_FOUND;
+    }
+
+    private static void putOpcode(Integer opcode, String name) {
+        opcodeToName.put(opcode, name);
+        nameToOpcode.put(name, opcode);
+    }
 
     static {
         putOpcode(NOP, "nop");
@@ -253,7 +266,10 @@ public class Constants implements Opcodes {
         putOpcode(INVOKEVIRTUAL, "invokevirtual");
         putOpcode(INVOKESPECIAL, "invokespecial");
         putOpcode(INVOKESTATIC, "invokestatic");
-        putOpcode(INVOKEINTERFACE, "invokeinterface");
+        putOpcode(INVOKEVIRTUAL | FLAG_INTERFACE, "invokevirtualinterface");
+        putOpcode(INVOKESPECIAL | FLAG_INTERFACE, "invokespecialinterface");
+        putOpcode(INVOKESTATIC | FLAG_INTERFACE, "invokestaticinterface");
+        putOpcode(INVOKEINTERFACE | FLAG_INTERFACE, "invokeinterface");
         putOpcode(INVOKEDYNAMIC, "invokedynamic");
         putOpcode(NEW, "new");
         putOpcode(NEWARRAY, "newarray");
@@ -272,25 +288,41 @@ public class Constants implements Opcodes {
         //        putOpcode(JSR_W, "jsr_w");
 
         putOpcode(SWITCH, "switch");
-        putOpcode(INVOKEVIRTUALINTERFACE, "invokevirtualinterface");
-        putOpcode(INVOKESPECIALINTERFACE, "invokespecialinterface");
-        putOpcode(INVOKESTATICINTERFACE, "invokestaticinterface");
         putOpcode(LINE_NUMBER, "line");
         putOpcode(LOCAL_VARIABLE, "var");
         putOpcode(TRY_CATCH_BLOCK, "try");
+
     }
 
-    private static void putOpcode(int opcode, String name) {
-        opcodeToName.put(opcode, name);
-        nameToOpcode.put(name, opcode);
+    private static final Map<Integer, String> handleKindName = new HashMap<>();
+    private static final Map<String, Integer> handleKind = new HashMap<>();
+
+    public static String getHandleKindName(int kind) {
+        return handleKindName.get(kind);
     }
 
-    public static String opcodeToName(int opcode) {
-        return opcodeToName.get(opcode);
+    public static int getHandleKind(String name) {
+        return handleKind.get(name);
     }
 
-    public static int nameToOpcode(String name) {
-        Integer opcode = nameToOpcode.get(name);
-        return opcode != null ? opcode : OPCODE_NOT_FOUND;
+    private static void putHandleKind(Integer kind, String name) {
+        handleKindName.put(kind, name);
+        handleKind.put(name, kind);
+    }
+
+    static {
+        putHandleKind(H_GETFIELD, "getfield");
+        putHandleKind(H_GETSTATIC, "getstatic");
+        putHandleKind(H_PUTFIELD, "putfield");
+        putHandleKind(H_PUTSTATIC, "putstatic");
+        putHandleKind(H_INVOKEVIRTUAL, "invokevirtual");
+        putHandleKind(H_INVOKESTATIC, "invokestatic");
+        putHandleKind(H_INVOKESPECIAL, "invokespecial");
+        putHandleKind(H_NEWINVOKESPECIAL, "newinvokespecial");
+        putHandleKind(H_INVOKEINTERFACE | FLAG_INTERFACE, "invokeinterface");
+        putHandleKind(H_INVOKESTATIC | FLAG_INTERFACE, "invokestaticinterface");
+        putHandleKind(H_INVOKESPECIAL | FLAG_INTERFACE, "invokespecialinterface");
+        putHandleKind(H_INVOKEVIRTUAL | FLAG_INTERFACE, "invokevirtualinterface");
+        putHandleKind(H_NEWINVOKESPECIAL | FLAG_INTERFACE, "newinvokespecialinterface");
     }
 }

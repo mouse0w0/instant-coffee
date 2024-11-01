@@ -12,20 +12,28 @@ import java.nio.file.Paths;
 
 public class Utils {
     public static void check(Class<?> clazz) {
+        check(clazz, false);
+    }
+
+    public static void check(Class<?> clazz, boolean print) {
         String rawDecompiled = decompile(clazz);
         String rawTextified = textify(clazz);
         byte[] recompiled = compile(rawDecompiled);
         String reDecompiled = decompile(recompiled);
         String reTextified = textify(recompiled);
 
-        if (rawDecompiled.equals(reDecompiled) && rawTextified.equals(reTextified)) return;
+        boolean valid = rawDecompiled.equals(reDecompiled) && rawTextified.equals(reTextified);
 
-        System.out.println("INCORRECT RECOMPILATION!!!");
+        if (!valid || print) {
+            writeString(Paths.get(clazz.getSimpleName() + "_decompiled_raw.txt"), rawDecompiled);
+            writeString(Paths.get(clazz.getSimpleName() + "_decompiled_new.txt"), reDecompiled);
+            writeString(Paths.get(clazz.getSimpleName() + "_textified_raw.txt"), rawTextified);
+            writeString(Paths.get(clazz.getSimpleName() + "_textified_new.txt"), reTextified);
+        }
 
-        writeString(Paths.get(clazz.getSimpleName() + "_decompiled_raw.txt"), rawDecompiled);
-        writeString(Paths.get(clazz.getSimpleName() + "_decompiled_new.txt"), reDecompiled);
-        writeString(Paths.get(clazz.getSimpleName() + "_textified_raw.txt"), rawTextified);
-        writeString(Paths.get(clazz.getSimpleName() + "_textified_new.txt"), reTextified);
+        if (!valid) {
+            throw new AssertionError();
+        }
     }
 
     public static void writeString(Path path, String string, OpenOption... options) {

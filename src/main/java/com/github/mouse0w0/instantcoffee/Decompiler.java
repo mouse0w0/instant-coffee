@@ -1,5 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
+import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
+import com.github.mouse0w0.instantcoffee.model.Handle;
 import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.insn.*;
@@ -159,11 +161,11 @@ public class Decompiler {
         return new ReferenceType(Location.UNKNOWN, parseIdentifiers(internalName, begin, end));
     }
 
-    private static Type parseTypeDescriptor(String typeDescriptor) {
-        return parseTypeDescriptor(typeDescriptor, 0, typeDescriptor.length());
+    private static Type parseType(String typeDescriptor) {
+        return parseType(typeDescriptor, 0, typeDescriptor.length());
     }
 
-    private static Type parseTypeDescriptor(String typeDescriptor, int begin, int end) {
+    private static Type parseType(String typeDescriptor, int begin, int end) {
         switch (typeDescriptor.charAt(begin)) {
             case 'V':
                 return new PrimitiveType(Location.UNKNOWN, Primitive.VOID);
@@ -184,7 +186,7 @@ public class Decompiler {
             case 'D':
                 return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
             case '[':
-                return new ArrayType(Location.UNKNOWN, parseTypeDescriptor(typeDescriptor, begin + 1, end));
+                return new ArrayType(Location.UNKNOWN, parseType(typeDescriptor, begin + 1, end));
             case 'L':
                 return parseInternalName(typeDescriptor, begin + 1, end - 1);
             case '(':
@@ -195,7 +197,7 @@ public class Decompiler {
     }
 
     private static Type parseType(org.objectweb.asm.Type type) {
-        return parseTypeDescriptor(type.getDescriptor());
+        return parseType(type.getDescriptor());
     }
 
     private static Value parseValue(Object value) {
@@ -204,7 +206,12 @@ public class Decompiler {
         } else if (value instanceof String) {
             return new StringLiteral(Location.UNKNOWN, "\"" + escape(value.toString()) + "\"");
         } else if (value instanceof org.objectweb.asm.Type) {
-            return new ClassLiteral(Location.UNKNOWN, parseTypeDescriptor(value.toString()));
+            String descriptor = value.toString();
+            if (descriptor.charAt(0) == '(') {
+                return parseMethodType(descriptor);
+            } else {
+                return new ClassLiteral(Location.UNKNOWN, parseType(descriptor));
+            }
         } else if (value instanceof Byte) {
             return new IntegerLiteral(Location.UNKNOWN, value + "B");
         } else if (value instanceof Short) {
@@ -221,9 +228,46 @@ public class Decompiler {
             return new BooleanLiteral(Location.UNKNOWN, value.toString());
         } else if (value instanceof Character) {
             return new CharacterLiteral(Location.UNKNOWN, "'" + escape(value.toString()) + "'");
+        } else if (value instanceof org.objectweb.asm.Handle) {
+            return parseHandle((org.objectweb.asm.Handle) value);
+        } else if (value instanceof org.objectweb.asm.ConstantDynamic) {
+            return parseConstantDynamic((org.objectweb.asm.ConstantDynamic) value);
         } else {
             throw new IllegalArgumentException("unsupported type: " + value.getClass());
         }
+    }
+
+    private static MethodType parseMethodType(String methodDescriptor) {
+        org.objectweb.asm.Type[] asmParameterTypes = org.objectweb.asm.Type.getArgumentTypes(methodDescriptor);
+        Type[] parameterTypes = new Type[asmParameterTypes.length];
+        for (int i = 0; i < asmParameterTypes.length; i++) {
+            parameterTypes[i] = parseType(asmParameterTypes[i]);
+        }
+        Type returnType = parseType(org.objectweb.asm.Type.getReturnType(methodDescriptor));
+        return new MethodType(Location.UNKNOWN, parameterTypes, returnType);
+    }
+
+    private static Handle parseHandle(org.objectweb.asm.Handle handle) {
+        String kind = Constants.getHandleKindName(handle.getTag() | (handle.isInterface() && handle.getTag() != H_INVOKEINTERFACE ? FLAG_INTERFACE : 0));
+        ReferenceType owner = parseInternalName(handle.getOwner());
+        String name = handle.getName();
+        if (handle.getTag() < H_INVOKEVIRTUAL) {
+            return new Handle(Location.UNKNOWN, kind, owner, name, parseType(handle.getDesc()));
+        } else {
+            return new Handle(Location.UNKNOWN, kind, owner, name, parseMethodType(handle.getDesc()));
+        }
+    }
+
+    private static ConstantDynamic parseConstantDynamic(org.objectweb.asm.ConstantDynamic constantDynamic) {
+        String name = constantDynamic.getName();
+        Type type = parseType(constantDynamic.getDescriptor());
+        Handle bootstrapMethod = parseHandle(constantDynamic.getBootstrapMethod());
+        int bootstrapMethodArgumentCount = constantDynamic.getBootstrapMethodArgumentCount();
+        Value[] bootstrapMethodArguments = new Value[bootstrapMethodArgumentCount];
+        for (int i = 0; i < bootstrapMethodArgumentCount; i++) {
+            bootstrapMethodArguments[i] = parseValue(constantDynamic.getBootstrapMethodArgument(i));
+        }
+        return new ConstantDynamic(Location.UNKNOWN, name, type, bootstrapMethod, bootstrapMethodArguments);
     }
 
     private static IntegerLiteral parseIntegerLiteral(int value) {
@@ -369,7 +413,7 @@ public class Decompiler {
         public MyFieldVisitor(int access, String name, String descriptor, String signature, Object value, Consumer<FieldDeclaration> callback) {
             super(Opcodes.ASM9);
             this.modifiers = parseFieldModifiers(access);
-            this.type = parseTypeDescriptor(descriptor);
+            this.type = parseType(descriptor);
             this.name = name;
             this.value = parseValue(value);
             this.callback = callback;
@@ -488,32 +532,32 @@ public class Decompiler {
 
         @Override
         public void visitInsn(int opcode) {
-            instructions.add(new Insn(Location.UNKNOWN, Constants.opcodeToName(opcode)));
+            instructions.add(new Insn(Location.UNKNOWN, Constants.getOpcodeName(opcode)));
         }
 
         @Override
         public void visitIntInsn(int opcode, int operand) {
-            instructions.add(new IntInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseIntegerLiteral(operand)));
+            instructions.add(new IntInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseIntegerLiteral(operand)));
         }
 
         @Override
         public void visitVarInsn(int opcode, int var) {
-            instructions.add(new VarInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseIntegerLiteral(var)));
+            instructions.add(new VarInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseIntegerLiteral(var)));
         }
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
-            instructions.add(new TypeInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseInternalName(type)));
+            instructions.add(new TypeInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseInternalName(type)));
         }
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            instructions.add(new FieldInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), parseInternalName(owner), name, parseTypeDescriptor(descriptor)));
+            instructions.add(new FieldInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
         }
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-            String opcodeName = Constants.opcodeToName(opcode);
+            String opcodeName = Constants.getOpcodeName(opcode | (isInterface && opcode != INVOKEINTERFACE ? FLAG_INTERFACE : 0));
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
             Type[] parameterTypes = new Type[parameters.length];
             for (int i = 0; i < parameters.length; i++) {
@@ -530,18 +574,25 @@ public class Decompiler {
         }
 
         @Override
-        public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-            // System.out.append("INVOKEDYNAMIC ")
-            //         .append(name).append(" ")
-            //         .append(descriptor).append(" ")
-            //         .append(bootstrapMethodHandle.toString()).append(" ")
-            //         .append(Arrays.deepToString(bootstrapMethodArguments)).println();
-            throw new UnsupportedOperationException("invoke dynamic");
+        public void visitInvokeDynamicInsn(String name, String descriptor, org.objectweb.asm.Handle bootstrapMethod, Object... bootstrapMethodArguments) {
+            MethodType methodType = parseMethodType(descriptor);
+            Handle newBootstrapMethod = parseHandle(bootstrapMethod);
+            Value[] newBootstrapMethodArguments = new Value[bootstrapMethodArguments.length];
+            for (int i = 0; i < bootstrapMethodArguments.length; i++) {
+                newBootstrapMethodArguments[i] = parseValue(bootstrapMethodArguments[i]);
+            }
+            instructions.add(new InvokeDynamicInsn(
+                    Location.UNKNOWN,
+                    name,
+                    methodType,
+                    newBootstrapMethod,
+                    newBootstrapMethodArguments
+            ));
         }
 
         @Override
         public void visitJumpInsn(int opcode, Label label) {
-            instructions.add(new JumpInsn(Location.UNKNOWN, Constants.opcodeToName(opcode), getLabel(label).name));
+            instructions.add(new JumpInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), getLabel(label).name));
         }
 
         @Override
@@ -613,7 +664,7 @@ public class Decompiler {
         public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
             instructions.add(new MultiANewArrayInsn(
                     Location.UNKNOWN,
-                    parseTypeDescriptor(descriptor),
+                    parseType(descriptor),
                     parseIntegerLiteral(numDimensions)));
         }
 
@@ -643,7 +694,7 @@ public class Decompiler {
             localVariables.add(new LocalVariable(
                     Location.UNKNOWN,
                     name,
-                    parseTypeDescriptor(descriptor),
+                    parseType(descriptor),
                     getLabel(start).name,
                     getLabel(end).name,
                     parseIntegerLiteral(index)));
