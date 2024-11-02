@@ -409,7 +409,7 @@ public class Compiler {
     }
 
     private void compileIntInsn(IntInsn insn, MethodVisitor mv) {
-        mv.visitVarInsn(getOpcode(insn.opcode), getConstantValue2(insn.operand).intValue());
+        mv.visitIntInsn(getOpcode(insn.opcode), getConstantValue2(insn.operand).intValue());
     }
 
     private void compileVarInsn(VarInsn insn, MethodVisitor mv) {
