@@ -1,8 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.util.Printer;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
@@ -14,12 +12,12 @@ import java.nio.file.Paths;
 
 public class Utils {
     public static void validate(Class<?> clazz) {
-        validate(clazz, false, false);
+        validate(clazz, false);
     }
 
-    public static void validate(Class<?> clazz, boolean skipMaxs, boolean print) {
+    public static void validate(Class<?> clazz, boolean print) {
         String decompiledRaw = decompile(clazz);
-        String textifiedRaw = textify(clazz, skipMaxs);
+        String textifiedRaw = textify(clazz);
 
         if (print) {
             writeString(Paths.get(clazz.getSimpleName() + "_decompiled_raw.txt"), decompiledRaw);
@@ -29,7 +27,7 @@ public class Utils {
         byte[] recompiled = compile(decompiledRaw);
 
         String decompiledNew = decompile(recompiled);
-        String textifiedNew = textify(recompiled, skipMaxs);
+        String textifiedNew = textify(recompiled);
 
         if (print) {
             writeString(Paths.get(clazz.getSimpleName() + "_decompiled_new.txt"), decompiledNew);
@@ -71,21 +69,19 @@ public class Utils {
         return sw.toString();
     }
 
-    public static String textify(Class<?> clazz, boolean skipMaxs) {
+    public static String textify(Class<?> clazz) {
         try (InputStream inputStream = openStream(clazz)) {
             StringWriter sw = new StringWriter();
-            Printer printer = skipMaxs ? new SkipMaxsTextifier() : new Textifier();
-            new ClassReader(inputStream).accept(new TraceClassVisitor(null, printer, new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
+            new ClassReader(inputStream).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
             return sw.toString();
         } catch (IOException e) {
             throw new UncheckedIOException(e.getMessage(), e);
         }
     }
 
-    public static String textify(byte[] bytes, boolean skipMaxs) {
+    public static String textify(byte[] bytes) {
         StringWriter sw = new StringWriter();
-        Printer printer = skipMaxs ? new SkipMaxsTextifier() : new Textifier();
-        new ClassReader(bytes).accept(new TraceClassVisitor(null, printer, new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
+        new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
         return sw.toString();
     }
 
@@ -94,22 +90,5 @@ public class Utils {
         int index = classQualifiedName.lastIndexOf('.');
         String className = index != -1 ? classQualifiedName.substring(index + 1) : classQualifiedName;
         return clazz.getResourceAsStream(className + ".class");
-    }
-
-    private static final class SkipMaxsTextifier extends Textifier {
-        public SkipMaxsTextifier() {
-            super(Opcodes.ASM9);
-        }
-
-        @Override
-        public void visitMaxs(int maxStack, int maxLocals) {
-            System.out.println();
-            // Skip
-        }
-
-        @Override
-        protected Textifier createTextifier() {
-            return new SkipMaxsTextifier();
-        }
     }
 }

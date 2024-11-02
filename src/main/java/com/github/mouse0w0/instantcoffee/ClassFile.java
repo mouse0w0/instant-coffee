@@ -27,6 +27,9 @@ public class ClassFile extends ClassVisitor {
         this.classDescriptor = "L" + name + ";";
 
         super.visit(version, access, name, signature, superName, interfaces);
+
+        // Fix compute maxs for switch insn
+        cw.setFlags(ClassWriter.COMPUTE_MAXS);
     }
 
     public String getClassName() {

@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 public class SwitchTest {
     @Test
     public void test() {
-        Utils.validate(Switch.class, true, false);
+        Utils.validate(Switch.class);
     }
 
     private static class Switch {
