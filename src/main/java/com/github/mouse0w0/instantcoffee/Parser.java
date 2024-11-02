@@ -469,7 +469,7 @@ public class Parser {
 
     private Annotation[] parseAnnotations() {
         List<Annotation> l = new ArrayList<>();
-        while (peek("@")) {
+        while (peek("@") && !peek2("interface")) {
             l.add(parseAnnotation());
         }
         return l.toArray(Annotation.EMPTY_ARRAY);
