@@ -5,11 +5,11 @@ import org.junit.jupiter.api.Test;
 public class LdcTest {
     @Test
     public void test() {
-        Utils.check(LdcTestClass.class);
+        Utils.validate(Ldc.class);
     }
 
-    private static class LdcTestClass {
-        private void a() {
+    private static class Ldc {
+        private void method() {
             // TODO: type signature
             Class a = String.class;
             Class b = String[].class;
