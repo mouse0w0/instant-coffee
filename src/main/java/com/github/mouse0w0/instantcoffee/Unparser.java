@@ -409,7 +409,7 @@ public class Unparser {
     private void unparseValue(Value value, PrintWriter pw) {
         if (value instanceof Literal) {
             pw.append(value.toString());
-        } else if (value instanceof ClassLiteral) {
+        } else if (value instanceof Type) {
             pw.append(value.toString());
         } else if (value instanceof MethodType) {
             pw.append(value.toString());

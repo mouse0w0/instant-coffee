@@ -35,8 +35,11 @@ public class Parser {
             "boolean", "char", "byte", "short", "int", "float", "long", "double",
     };
     private static final TokenType[] LITERALS = {
-            TokenType.NULL_LITERAL, TokenType.BOOLEAN_LITERAL, TokenType.CHARACTER_LITERAL,
-            TokenType.INTEGER_LITERAL, TokenType.FLOATING_POINT_LITERAL, TokenType.STRING_LITERAL
+            TokenType.BOOLEAN_LITERAL,
+            TokenType.CHARACTER_LITERAL,
+            TokenType.INTEGER_LITERAL,
+            TokenType.FLOATING_POINT_LITERAL,
+            TokenType.STRING_LITERAL
     };
 
     private final TokenStream tokenStream;
@@ -514,7 +517,13 @@ public class Parser {
     private AnnotationValue parseAnnotationValue() {
         if (peek("@")) return parseAnnotation();
         if (peek("{")) return parseAnnotationValueArrayInitializer();
-        return parseValue();
+        if (peek(LITERALS) != -1) return parseLiteral();
+        Type type = parseVoidOrType();
+        if (peek("#") && type instanceof ReferenceType) {
+            read();
+            return new EnumLiteral(type.getLocation(), (ReferenceType) type, parseIdentifier());
+        }
+        return type;
     }
 
     private AnnotationValueArrayInitializer parseAnnotationValueArrayInitializer() {
@@ -660,65 +669,40 @@ public class Parser {
     }
 
     private Value parseValue() {
-        // Parse handle
-        if (peek("Handle")) {
-            return parseHandle();
+        if (peek("Handle")) return parseHandle();
+        if (peek("ConstantDynamic")) return parseConstantDynamic();
+        if (peek("(")) return parseMethodType();
+        if (peek(TokenType.NULL_LITERAL)) return new NullLiteral(read().getLocation());
+        if (peek(LITERALS) != -1) return parseLiteral();
+        return parseVoidOrType();
+    }
+
+    private Literal parseLiteral() {
+        Token t = read();
+        switch (t.getType()) {
+            case BOOLEAN_LITERAL:
+                return new BooleanLiteral(t.getLocation(), t.getText());
+            case CHARACTER_LITERAL:
+                return new CharacterLiteral(t.getLocation(), t.getText());
+            case INTEGER_LITERAL:
+                return new IntegerLiteral(t.getLocation(), t.getText());
+            case FLOATING_POINT_LITERAL:
+                return new FloatingPointLiteral(t.getLocation(), t.getText());
+            case STRING_LITERAL:
+                return new StringLiteral(t.getLocation(), t.getText());
+            default:
+                throw new CompileException("Expected literal", t.getLocation());
         }
+    }
 
-        // Parse constant dynamic
-        if (peek("ConstantDynamic")) {
-            return parseConstantDynamic();
-        }
+    private IntegerLiteral parseIntegerLiteral() {
+        Token t = read(TokenType.INTEGER_LITERAL);
+        return new IntegerLiteral(t.getLocation(), t.getText());
+    }
 
-        // Parse method type
-        if (peek("(")) {
-            return parseMethodType();
-        }
-
-        // Parse literal
-        if (peek(LITERALS) != -1) {
-            return parseLiteral();
-        }
-
-        Location location = location();
-
-        // Parse void class
-        if (peekRead("void")) {
-            if (peek(".") && peek2("class")) {
-                read();
-                read();
-                return new ClassLiteral(location, new PrimitiveType(location, Primitive.VOID));
-            }
-            throw new CompileException("Unexpected token \"void\"", location);
-        }
-
-        // Parse primitive class
-        if (peek(PRIMITIVES) != -1) {
-            Type type = parseType();
-            if (peek(".") && peek2("class")) {
-                read();
-                read();
-                return new ClassLiteral(location, type);
-            }
-            throw new CompileException("Unexpected token", location);
-        }
-
-        // Parse reference class or ambiguous name
-        if (peek(TokenType.IDENTIFIER)) {
-            List<String> identifiers = new ArrayList<>();
-            identifiers.add(parseIdentifier());
-            while (peekRead(".")) {
-                String identifier = parseIdentifier();
-                if ("class".equals(identifier)) {
-                    return new ClassLiteral(location, new ReferenceType(location, identifiers.toArray(Constants.EMPTY_STRING_ARRAY)));
-                } else {
-                    identifiers.add(identifier);
-                }
-            }
-            return new AmbiguousName(location, identifiers.toArray(Constants.EMPTY_STRING_ARRAY));
-        }
-
-        throw new CompileException("Unexpected token \"" + read().getText() + "\"", location);
+    private StringLiteral parseStringLiteral() {
+        Token t = read(TokenType.STRING_LITERAL);
+        return new StringLiteral(t.getLocation(), t.getText());
     }
 
     private MethodType parseMethodType() {
@@ -778,36 +762,6 @@ public class Parser {
         } while (peekRead(","));
         read("}");
         return arguments.toArray(Value.EMPTY_ARRAY);
-    }
-
-    private Literal parseLiteral() {
-        Token t = read();
-        switch (t.getType()) {
-            case NULL_LITERAL:
-                return new NullLiteral(t.getLocation());
-            case BOOLEAN_LITERAL:
-                return new BooleanLiteral(t.getLocation(), t.getText());
-            case CHARACTER_LITERAL:
-                return new CharacterLiteral(t.getLocation(), t.getText());
-            case INTEGER_LITERAL:
-                return new IntegerLiteral(t.getLocation(), t.getText());
-            case FLOATING_POINT_LITERAL:
-                return new FloatingPointLiteral(t.getLocation(), t.getText());
-            case STRING_LITERAL:
-                return new StringLiteral(t.getLocation(), t.getText());
-            default:
-                throw new CompileException("Expected literal", t.getLocation());
-        }
-    }
-
-    private IntegerLiteral parseIntegerLiteral() {
-        Token t = read(TokenType.INTEGER_LITERAL);
-        return new IntegerLiteral(t.getLocation(), t.getText());
-    }
-
-    private StringLiteral parseStringLiteral() {
-        Token t = read(TokenType.STRING_LITERAL);
-        return new StringLiteral(t.getLocation(), t.getText());
     }
 
     private static boolean hasModifier(Modifier[] modifiers, String keyword) {

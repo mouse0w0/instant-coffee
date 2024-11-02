@@ -205,13 +205,6 @@ public class Decompiler {
             return new NullLiteral(Location.UNKNOWN);
         } else if (value instanceof String) {
             return new StringLiteral(Location.UNKNOWN, "\"" + escape(value.toString()) + "\"");
-        } else if (value instanceof org.objectweb.asm.Type) {
-            String descriptor = value.toString();
-            if (descriptor.charAt(0) == '(') {
-                return parseMethodType(descriptor);
-            } else {
-                return new ClassLiteral(Location.UNKNOWN, parseType(descriptor));
-            }
         } else if (value instanceof Byte) {
             return new IntegerLiteral(Location.UNKNOWN, value + "B");
         } else if (value instanceof Short) {
@@ -228,12 +221,52 @@ public class Decompiler {
             return new BooleanLiteral(Location.UNKNOWN, value.toString());
         } else if (value instanceof Character) {
             return new CharacterLiteral(Location.UNKNOWN, "'" + escape(value.toString()) + "'");
+        } else if (value instanceof org.objectweb.asm.Type) {
+            String descriptor = value.toString();
+            if (descriptor.charAt(0) == '(') {
+                return parseMethodType(descriptor);
+            } else {
+                return parseType(descriptor);
+            }
         } else if (value instanceof org.objectweb.asm.Handle) {
             return parseHandle((org.objectweb.asm.Handle) value);
         } else if (value instanceof org.objectweb.asm.ConstantDynamic) {
             return parseConstantDynamic((org.objectweb.asm.ConstantDynamic) value);
         } else {
-            throw new IllegalArgumentException("unsupported type: " + value.getClass());
+            throw new IllegalArgumentException("Unsupported type: " + value.getClass());
+        }
+    }
+
+    private static AnnotationValue parseAnnotationValue(Object value) {
+        if (value instanceof String) {
+            return new StringLiteral(Location.UNKNOWN, "\"" + escape(value.toString()) + "\"");
+        } else if (value instanceof Byte) {
+            return new IntegerLiteral(Location.UNKNOWN, value + "B");
+        } else if (value instanceof Short) {
+            return new IntegerLiteral(Location.UNKNOWN, value + "S");
+        } else if (value instanceof Integer) {
+            return new IntegerLiteral(Location.UNKNOWN, value.toString());
+        } else if (value instanceof Long) {
+            return new IntegerLiteral(Location.UNKNOWN, value + "L");
+        } else if (value instanceof Float) {
+            return new FloatingPointLiteral(Location.UNKNOWN, value + "F");
+        } else if (value instanceof Double) {
+            return new FloatingPointLiteral(Location.UNKNOWN, value + "D");
+        } else if (value instanceof Boolean) {
+            return new BooleanLiteral(Location.UNKNOWN, value.toString());
+        } else if (value instanceof Character) {
+            return new CharacterLiteral(Location.UNKNOWN, "'" + escape(value.toString()) + "'");
+        } else if (value instanceof org.objectweb.asm.Type) {
+            String descriptor = value.toString();
+            if (descriptor.charAt(0) == '(') {
+                throw new IllegalArgumentException("Annotation value cannot be a method descriptor: " + descriptor);
+            } else {
+                return parseType(descriptor);
+            }
+        } else if (value == null) {
+            throw new NullPointerException("Annotation value cannot be null");
+        } else {
+            throw new IllegalArgumentException("Annotation value cannot be of type: " + value.getClass());
         }
     }
 
@@ -289,11 +322,8 @@ public class Decompiler {
         return sb.toString();
     }
 
-    private static AmbiguousName parseEnum(String descriptor, String value) {
-        List<String> l = new ArrayList<>();
-        parseIdentifiers(descriptor, 1, descriptor.length() - 1, l);
-        l.add(value);
-        return new AmbiguousName(Location.UNKNOWN, l.toArray(EMPTY_STRING_ARRAY));
+    private static EnumLiteral parseEnumLiteral(String descriptor, String value) {
+        return new EnumLiteral(Location.UNKNOWN, parseInternalName(descriptor, 1, descriptor.length() - 1), value);
     }
 
     private static class MyClassVisitor extends ClassVisitor {
@@ -757,12 +787,12 @@ public class Decompiler {
 
         @Override
         public void visit(String name, Object value) {
-            addValue(name, parseValue(value));
+            addValue(name, parseAnnotationValue(value));
         }
 
         @Override
         public void visitEnum(String name, String descriptor, String value) {
-            addValue(name, parseEnum(descriptor, value));
+            addValue(name, parseEnumLiteral(descriptor, value));
         }
 
         @Override
@@ -793,12 +823,12 @@ public class Decompiler {
 
         @Override
         public void visit(String name, Object value) {
-            annotationValue = parseValue(value);
+            annotationValue = parseAnnotationValue(value);
         }
 
         @Override
         public void visitEnum(String name, String descriptor, String value) {
-            annotationValue = parseEnum(descriptor, value);
+            annotationValue = parseEnumLiteral(descriptor, value);
         }
 
         @Override
@@ -829,12 +859,12 @@ public class Decompiler {
 
         @Override
         public void visit(String name, Object value) {
-            values.add(parseValue(value));
+            values.add(parseAnnotationValue(value));
         }
 
         @Override
         public void visitEnum(String name, String descriptor, String value) {
-            values.add(parseEnum(descriptor, value));
+            values.add(parseEnumLiteral(descriptor, value));
         }
 
         @Override

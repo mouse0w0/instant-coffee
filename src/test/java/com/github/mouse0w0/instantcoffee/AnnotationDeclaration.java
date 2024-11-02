@@ -1,6 +1,8 @@
 package com.github.mouse0w0.instantcoffee;
 
 public @interface AnnotationDeclaration {
+    String unassign();
+
     byte b() default 127;
 
     short s() default 32767;

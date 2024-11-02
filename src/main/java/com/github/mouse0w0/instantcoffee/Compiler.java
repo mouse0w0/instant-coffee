@@ -594,12 +594,9 @@ public class Compiler {
             compileAnnotation(annotation, av.visitAnnotation(key, getDescriptor(annotation.type)));
         } else if (value instanceof AnnotationValueArrayInitializer) {
             compileAnnotationValueArray((AnnotationValueArrayInitializer) value, av.visitArray(key));
-        } else if (value instanceof AmbiguousName) {
-            AmbiguousName an = (AmbiguousName) value;
-            String[] identifiers = an.identifiers;
-            String descriptor = getDescriptor(Arrays.copyOf(identifiers, identifiers.length - 1));
-            String name = identifiers[identifiers.length - 1];
-            av.visitEnum(key, descriptor, name);
+        } else if (value instanceof EnumLiteral) {
+            EnumLiteral el = (EnumLiteral) value;
+            av.visitEnum(key, getDescriptor2(el.owner), el.name);
         } else if (value instanceof Value) {
             av.visit(key, getConstantValue((Value) value));
         } else {
@@ -617,8 +614,6 @@ public class Compiler {
     private Object getConstantValue(Value value) {
         if (value instanceof StringLiteral) {
             return getConstantValue2((StringLiteral) value);
-        } else if (value instanceof ClassLiteral) {
-            return getConstantValue2((ClassLiteral) value);
         } else if (value instanceof IntegerLiteral) {
             return getConstantValue2((IntegerLiteral) value);
         } else if (value instanceof FloatingPointLiteral) {
@@ -629,6 +624,8 @@ public class Compiler {
             return getConstantValue2((CharacterLiteral) value);
         } else if (value instanceof NullLiteral) {
             return getConstantValue2((NullLiteral) value);
+        } else if (value instanceof Type) {
+            return getConstantValue2((Type) value);
         } else if (value instanceof MethodType) {
             return getConstantValue2((MethodType) value);
         } else if (value instanceof Handle) {
@@ -638,10 +635,6 @@ public class Compiler {
         } else {
             throw new InternalCompileException(value.getClass().getName());
         }
-    }
-
-    private org.objectweb.asm.Type getConstantValue2(ClassLiteral cl) {
-        return org.objectweb.asm.Type.getType(getDescriptor(cl.type));
     }
 
     private String getConstantValue2(StringLiteral sl) {
@@ -776,6 +769,10 @@ public class Compiler {
 
     private Object getConstantValue2(NullLiteral nl) {
         return null;
+    }
+
+    private org.objectweb.asm.Type getConstantValue2(Type t) {
+        return org.objectweb.asm.Type.getType(getDescriptor(t));
     }
 
     private org.objectweb.asm.Type getConstantValue2(MethodType mt) {
