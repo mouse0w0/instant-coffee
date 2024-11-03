@@ -12,9 +12,6 @@ import java.util.*;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Compiler {
-    private static final String OBJECT = "java/lang/Object";
-    private static final String DEPRECATED = "java/lang/Deprecated";
-
     public Compiler() {
     }
 
@@ -166,7 +163,7 @@ public class Compiler {
     }
 
     private String getSuperclass(ReferenceType superclass) {
-        return superclass != null ? getInternalName(superclass.identifiers) : OBJECT;
+        return superclass != null ? getInternalName(superclass.identifiers) : "java/lang/Object";
     }
 
     private String[] getInterfaces(ReferenceType[] interfaces) {
