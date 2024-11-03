@@ -398,7 +398,6 @@ public class Parser {
                     break;
                 case Constants.BIPUSH:
                 case Constants.SIPUSH:
-                case Constants.NEWARRAY: // todo: newarray type
                     md.instructions.add(new IntInsn(location, insn, parseIntegerLiteral()));
                     break;
                 case Constants.LDC:
@@ -429,6 +428,9 @@ public class Parser {
                     break;
                 case Constants.IINC:
                     md.instructions.add(new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral()));
+                    break;
+                case Constants.NEWARRAY:
+                    md.instructions.add(new NewArrayInsn(location, parsePrimitiveType()));
                     break;
                 case Constants.MULTIANEWARRAY:
                     md.instructions.add(new MultiANewArrayInsn(location, parseType(), parseIntegerLiteral()));
@@ -634,6 +636,30 @@ public class Parser {
             type = new ArrayType(location, type);
         }
         return type;
+    }
+
+    private PrimitiveType parsePrimitiveType() {
+        Location location = location();
+        switch (read(PRIMITIVES)) {
+            case 0:
+                return new PrimitiveType(location, Primitive.BOOLEAN);
+            case 1:
+                return new PrimitiveType(location, Primitive.CHAR);
+            case 2:
+                return new PrimitiveType(location, Primitive.BYTE);
+            case 3:
+                return new PrimitiveType(location, Primitive.SHORT);
+            case 4:
+                return new PrimitiveType(location, Primitive.INT);
+            case 5:
+                return new PrimitiveType(location, Primitive.FLOAT);
+            case 6:
+                return new PrimitiveType(location, Primitive.LONG);
+            case 7:
+                return new PrimitiveType(location, Primitive.DOUBLE);
+            default:
+                throw new InternalCompileException();
+        }
     }
 
     private ReferenceType parseReferenceType() {

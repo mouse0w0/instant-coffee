@@ -282,6 +282,8 @@ public class Unparser {
                 unparseIincInsn((IincInsn) insn, pw);
             } else if (insn instanceof SwitchInsn) {
                 unparseSwitchInsn((SwitchInsn) insn, pw);
+            } else if (insn instanceof NewArrayInsn) {
+                unparseNewArrayInsn((NewArrayInsn) insn, pw);
             } else if (insn instanceof MultiANewArrayInsn) {
                 unparseMultiANewArrayInsn((MultiANewArrayInsn) insn, pw);
             } else if (insn instanceof LineNumberInsn) {
@@ -365,6 +367,10 @@ public class Unparser {
         appendIndent(pw).append("default: ").append(switchInsn.dflt).println();
         pop();
         appendIndent(pw).append("}").println();
+    }
+
+    private void unparseNewArrayInsn(NewArrayInsn newArrayInsn, PrintWriter pw) {
+        appendIndent(pw).append(newArrayInsn.opcode).append(" ").append(newArrayInsn.type.toString()).println();
     }
 
     private void unparseMultiANewArrayInsn(MultiANewArrayInsn multiANewArrayInsn, PrintWriter pw) {

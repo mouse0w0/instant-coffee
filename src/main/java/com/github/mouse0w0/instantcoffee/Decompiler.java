@@ -200,6 +200,29 @@ public class Decompiler {
         return parseType(type.getDescriptor());
     }
 
+    private static PrimitiveType parseNewArrayInsnType(int operand) {
+        switch (operand) {
+            case T_BOOLEAN:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
+            case T_CHAR:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
+            case T_FLOAT:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
+            case T_DOUBLE:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
+            case T_BYTE:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
+            case T_SHORT:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
+            case T_INT:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
+            case T_LONG:
+                return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
+            default:
+                throw new IllegalArgumentException("Unsupported newarray operand: " + operand);
+        }
+    }
+
     private static Value parseValue(Object value) {
         if (value == null) {
             return new NullLiteral(Location.UNKNOWN);
@@ -281,7 +304,7 @@ public class Decompiler {
     }
 
     private static Handle parseHandle(org.objectweb.asm.Handle handle) {
-        String kind = Constants.getHandleKindName(handle.getTag() | (handle.isInterface() && handle.getTag() != H_INVOKEINTERFACE ? FLAG_INTERFACE : 0));
+        String kind = getHandleKindName(handle.getTag() | (handle.isInterface() && handle.getTag() != H_INVOKEINTERFACE ? FLAG_INTERFACE : 0));
         ReferenceType owner = parseInternalName(handle.getOwner());
         String name = handle.getName();
         if (handle.getTag() < H_INVOKEVIRTUAL) {
@@ -562,32 +585,36 @@ public class Decompiler {
 
         @Override
         public void visitInsn(int opcode) {
-            instructions.add(new Insn(Location.UNKNOWN, Constants.getOpcodeName(opcode)));
+            instructions.add(new Insn(Location.UNKNOWN, getOpcodeName(opcode)));
         }
 
         @Override
         public void visitIntInsn(int opcode, int operand) {
-            instructions.add(new IntInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseIntegerLiteral(operand)));
+            if (opcode == NEWARRAY) {
+                instructions.add(new NewArrayInsn(Location.UNKNOWN, parseNewArrayInsnType(operand)));
+            } else {
+                instructions.add(new IntInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(operand)));
+            }
         }
 
         @Override
         public void visitVarInsn(int opcode, int var) {
-            instructions.add(new VarInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseIntegerLiteral(var)));
+            instructions.add(new VarInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(var)));
         }
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
-            instructions.add(new TypeInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseInternalName(type)));
+            instructions.add(new TypeInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(type)));
         }
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            instructions.add(new FieldInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
+            instructions.add(new FieldInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
         }
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-            String opcodeName = Constants.getOpcodeName(opcode | (isInterface && opcode != INVOKEINTERFACE ? FLAG_INTERFACE : 0));
+            String opcodeName = getOpcodeName(opcode | (isInterface && opcode != INVOKEINTERFACE ? FLAG_INTERFACE : 0));
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
             Type[] parameterTypes = new Type[parameters.length];
             for (int i = 0; i < parameters.length; i++) {
@@ -622,7 +649,7 @@ public class Decompiler {
 
         @Override
         public void visitJumpInsn(int opcode, Label label) {
-            instructions.add(new JumpInsn(Location.UNKNOWN, Constants.getOpcodeName(opcode), getLabel(label).name));
+            instructions.add(new JumpInsn(Location.UNKNOWN, getOpcodeName(opcode), getLabel(label).name));
         }
 
         @Override

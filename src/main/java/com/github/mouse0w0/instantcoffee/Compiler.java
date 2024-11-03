@@ -399,6 +399,8 @@ public class Compiler {
             compileIincInsn((IincInsn) insn, mv);
         } else if (insn instanceof SwitchInsn) {
             compileSwitchInsn((SwitchInsn) insn, labels, mv);
+        } else if (insn instanceof NewArrayInsn) {
+            compileNewArrayInsn((NewArrayInsn) insn, mv);
         } else if (insn instanceof MultiANewArrayInsn) {
             compileMultiANewArrayInsn((MultiANewArrayInsn) insn, mv);
         } else if (insn instanceof LineNumberInsn) {
@@ -518,6 +520,33 @@ public class Compiler {
                 i++;
             }
             mv.visitLookupSwitchInsn(dflt, keys, labels);
+        }
+    }
+
+    private void compileNewArrayInsn(NewArrayInsn insn, MethodVisitor mv) {
+        mv.visitIntInsn(NEWARRAY, getNewArrayInsnOperand(insn.type));
+    }
+
+    private static int getNewArrayInsnOperand(PrimitiveType type) {
+        switch (type.primitive) {
+            case BOOLEAN:
+                return T_BOOLEAN;
+            case CHAR:
+                return T_CHAR;
+            case FLOAT:
+                return T_FLOAT;
+            case DOUBLE:
+                return T_DOUBLE;
+            case BYTE:
+                return T_BYTE;
+            case SHORT:
+                return T_SHORT;
+            case INT:
+                return T_INT;
+            case LONG:
+                return T_LONG;
+            default:
+                throw new InternalCompileException();
         }
     }
 
