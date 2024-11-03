@@ -471,6 +471,10 @@ public class Compiler {
             push((String) constantValue, mv);
         } else if (constantValue instanceof org.objectweb.asm.Type) {
             push((org.objectweb.asm.Type) constantValue, mv);
+        } else if (constantValue instanceof org.objectweb.asm.Handle) {
+            push((org.objectweb.asm.Handle) constantValue, mv);
+        } else if (constantValue instanceof org.objectweb.asm.ConstantDynamic) {
+            push((org.objectweb.asm.ConstantDynamic) constantValue, mv);
         } else {
             throw new InternalCompileException(constantValue.getClass().getName());
         }
@@ -804,11 +808,11 @@ public class Compiler {
         return a;
     }
 
-    private void push(boolean value, MethodVisitor mv) {
+    private static void push(boolean value, MethodVisitor mv) {
         push(value ? 1 : 0, mv);
     }
 
-    private void push(int value, MethodVisitor mv) {
+    private static void push(int value, MethodVisitor mv) {
         if (value >= -1 && value <= 5) {
             mv.visitInsn(Opcodes.ICONST_0 + value);
         } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
@@ -820,7 +824,7 @@ public class Compiler {
         }
     }
 
-    private void push(long value, MethodVisitor mv) {
+    private static void push(long value, MethodVisitor mv) {
         if (value == 0L || value == 1L) {
             mv.visitInsn(Opcodes.LCONST_0 + (int) value);
         } else {
@@ -828,7 +832,7 @@ public class Compiler {
         }
     }
 
-    private void push(float value, MethodVisitor mv) {
+    private static void push(float value, MethodVisitor mv) {
         int bits = Float.floatToIntBits(value);
         if (bits == 0L || bits == 0x3F800000 || bits == 0x40000000) { // 0..2
             mv.visitInsn(Opcodes.FCONST_0 + (int) value);
@@ -837,7 +841,7 @@ public class Compiler {
         }
     }
 
-    private void push(double value, MethodVisitor mv) {
+    private static void push(double value, MethodVisitor mv) {
         long bits = Double.doubleToLongBits(value);
         if (bits == 0L || bits == 0x3FF0000000000000L) { // +0.0d and 1.0d
             mv.visitInsn(Opcodes.DCONST_0 + (int) value);
@@ -846,7 +850,7 @@ public class Compiler {
         }
     }
 
-    private void push(String value, MethodVisitor mv) {
+    private static void push(String value, MethodVisitor mv) {
         if (value == null) {
             mv.visitInsn(Opcodes.ACONST_NULL);
         } else {
@@ -856,7 +860,7 @@ public class Compiler {
 
     private static final String CLASS_DESCRIPTOR = "Ljava/lang/Class;";
 
-    private void push(org.objectweb.asm.Type value, MethodVisitor mv) {
+    private static void push(org.objectweb.asm.Type value, MethodVisitor mv) {
         if (value == null) {
             mv.visitInsn(Opcodes.ACONST_NULL);
         } else {
@@ -892,6 +896,22 @@ public class Compiler {
                     mv.visitLdcInsn(value);
                     break;
             }
+        }
+    }
+
+    private static void push(org.objectweb.asm.Handle handle, MethodVisitor mv) {
+        if (handle == null) {
+            mv.visitInsn(Opcodes.ACONST_NULL);
+        } else {
+            mv.visitLdcInsn(handle);
+        }
+    }
+
+    private static void push(org.objectweb.asm.ConstantDynamic constantDynamic, MethodVisitor mv) {
+        if (constantDynamic == null) {
+            mv.visitInsn(Opcodes.ACONST_NULL);
+        } else {
+            mv.visitLdcInsn(constantDynamic);
         }
     }
 
