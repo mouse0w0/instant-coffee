@@ -60,6 +60,8 @@ public class Compiler {
             return getDescriptor2((ArrayType) type);
         } else if (type instanceof ReferenceType) {
             return getDescriptor2((ReferenceType) type);
+        } else if (type instanceof VoidType) {
+            return getDescriptor2((VoidType) type);
         } else {
             throw new InternalCompileException(type.getClass().getName());
         }
@@ -71,8 +73,6 @@ public class Compiler {
 
     private String getDescriptor2(PrimitiveType type) {
         switch (type.primitive) {
-            case VOID:
-                return "V";
             case BOOLEAN:
                 return "Z";
             case CHAR:
@@ -100,6 +100,10 @@ public class Compiler {
 
     private String getDescriptor2(ReferenceType type) {
         return "L" + getInternalName(type.identifiers) + ";";
+    }
+
+    private String getDescriptor2(VoidType type) {
+        return "V";
     }
 
     private String getMethodDescriptor(MethodType type) {

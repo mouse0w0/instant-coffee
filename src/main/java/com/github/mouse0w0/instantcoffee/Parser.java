@@ -99,7 +99,7 @@ public class Parser {
             read("init");
             read(">");
             Location location = location();
-            Type returnType = new PrimitiveType(location, Primitive.VOID);
+            Type returnType = new VoidType(location);
             cd.methods.add(parseMethodDeclaration(
                     location,
                     annotations,
@@ -162,7 +162,7 @@ public class Parser {
                 location,
                 annotations,
                 modifiers,
-                new PrimitiveType(location, Primitive.VOID),
+                new VoidType(location),
                 "<clinit>",
                 Type.EMPTY_ARRAY,
                 ReferenceType.EMPTY_ARRAY,
@@ -592,7 +592,7 @@ public class Parser {
     }
 
     private Type parseVoid() {
-        return new PrimitiveType(read("void").getLocation(), Primitive.VOID);
+        return new VoidType(read("void").getLocation());
     }
 
     private Type parseType() {
