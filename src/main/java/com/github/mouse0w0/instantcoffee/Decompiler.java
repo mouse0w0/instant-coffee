@@ -4,7 +4,8 @@ import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
 import com.github.mouse0w0.instantcoffee.model.Handle;
 import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.*;
-import com.github.mouse0w0.instantcoffee.model.insn.*;
+import com.github.mouse0w0.instantcoffee.model.statement.Label;
+import com.github.mouse0w0.instantcoffee.model.statement.*;
 import org.objectweb.asm.*;
 
 import java.util.ArrayList;
@@ -504,11 +505,9 @@ public class Decompiler {
         private final Consumer<MethodDeclaration> callback;
 
         private final List<Annotation> annotations = new ArrayList<>();
-        private final List<BaseInsn> instructions = new ArrayList<>();
-        private final List<LocalVariable> localVariables = new ArrayList<>();
-        private final List<TryCatchBlock> tryCatchBlocks = new ArrayList<>();
+        private final List<Statement> statements = new ArrayList<>();
 
-        private final Map<Label, LabelInsn> labelMap = new HashMap<>();
+        private final Map<org.objectweb.asm.Label, Label> labelMap = new HashMap<>();
 
         private AnnotationValue defaultValue = null;
 
@@ -585,31 +584,31 @@ public class Decompiler {
 
         @Override
         public void visitInsn(int opcode) {
-            instructions.add(new Insn(Location.UNKNOWN, getOpcodeName(opcode)));
+            statements.add(new Insn(Location.UNKNOWN, getOpcodeName(opcode)));
         }
 
         @Override
         public void visitIntInsn(int opcode, int operand) {
             if (opcode == NEWARRAY) {
-                instructions.add(new NewArrayInsn(Location.UNKNOWN, parseNewArrayInsnType(operand)));
+                statements.add(new NewArrayInsn(Location.UNKNOWN, parseNewArrayInsnType(operand)));
             } else {
-                instructions.add(new IntInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(operand)));
+                statements.add(new IntInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(operand)));
             }
         }
 
         @Override
         public void visitVarInsn(int opcode, int var) {
-            instructions.add(new VarInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(var)));
+            statements.add(new VarInsn(Location.UNKNOWN, getOpcodeName(opcode), parseIntegerLiteral(var)));
         }
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
-            instructions.add(new TypeInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(type)));
+            statements.add(new TypeInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(type)));
         }
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            instructions.add(new FieldInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
+            statements.add(new FieldInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
         }
 
         @Override
@@ -621,7 +620,7 @@ public class Decompiler {
                 parameterTypes[i] = parseType(parameters[i]);
             }
             Type returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
-            instructions.add(new MethodInsn(
+            statements.add(new MethodInsn(
                     Location.UNKNOWN,
                     opcodeName,
                     parseInternalName(owner),
@@ -638,7 +637,7 @@ public class Decompiler {
             for (int i = 0; i < bootstrapMethodArguments.length; i++) {
                 newBootstrapMethodArguments[i] = parseValue(bootstrapMethodArguments[i]);
             }
-            instructions.add(new InvokeDynamicInsn(
+            statements.add(new InvokeDynamicInsn(
                     Location.UNKNOWN,
                     name,
                     methodType,
@@ -648,19 +647,19 @@ public class Decompiler {
         }
 
         @Override
-        public void visitJumpInsn(int opcode, Label label) {
-            instructions.add(new JumpInsn(Location.UNKNOWN, getOpcodeName(opcode), getLabel(label).name));
+        public void visitJumpInsn(int opcode, org.objectweb.asm.Label label) {
+            statements.add(new JumpInsn(Location.UNKNOWN, getOpcodeName(opcode), getLabel(label).name));
         }
 
         @Override
-        public void visitLabel(Label label) {
-            instructions.add(getLabel(label));
+        public void visitLabel(org.objectweb.asm.Label label) {
+            statements.add(getLabel(label));
         }
 
-        private LabelInsn getLabel(Label label) {
-            LabelInsn labelInsn = labelMap.get(label);
+        private Label getLabel(org.objectweb.asm.Label label) {
+            Label labelInsn = labelMap.get(label);
             if (labelInsn == null) {
-                labelInsn = new LabelInsn(Location.UNKNOWN, getLabelName(labelMap.size() + 1));
+                labelInsn = new Label(Location.UNKNOWN, getLabelName(labelMap.size() + 1));
                 labelMap.put(label, labelInsn);
             }
             return labelInsn;
@@ -680,38 +679,38 @@ public class Decompiler {
 
         @Override
         public void visitLdcInsn(Object value) {
-            instructions.add(new LdcInsn(Location.UNKNOWN, parseValue(value)));
+            statements.add(new LdcInsn(Location.UNKNOWN, parseValue(value)));
         }
 
         @Override
         public void visitIincInsn(int var, int increment) {
-            instructions.add(new IincInsn(
+            statements.add(new IincInsn(
                     Location.UNKNOWN,
                     parseIntegerLiteral(var),
                     parseIntegerLiteral(increment)));
         }
 
         @Override
-        public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+        public void visitTableSwitchInsn(int min, int max, org.objectweb.asm.Label dflt, org.objectweb.asm.Label... labels) {
             SwitchCase[] insnCases = new SwitchCase[labels.length];
             for (int i = 0; i < labels.length; i++) {
                 insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(i + min), getLabel(labels[i]).name);
             }
             String insnDflt = getLabel(dflt).name;
-            instructions.add(new SwitchInsn(
+            statements.add(new SwitchInsn(
                     Location.UNKNOWN,
                     insnCases,
                     insnDflt));
         }
 
         @Override
-        public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+        public void visitLookupSwitchInsn(org.objectweb.asm.Label dflt, int[] keys, org.objectweb.asm.Label[] labels) {
             SwitchCase[] insnCases = new SwitchCase[labels.length];
             for (int i = 0; i < labels.length; i++) {
                 insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(keys[i]), getLabel(labels[i]).name);
             }
             String insnDflt = getLabel(dflt).name;
-            instructions.add(new SwitchInsn(
+            statements.add(new SwitchInsn(
                     Location.UNKNOWN,
                     insnCases,
                     insnDflt));
@@ -719,7 +718,7 @@ public class Decompiler {
 
         @Override
         public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
-            instructions.add(new MultiANewArrayInsn(
+            statements.add(new MultiANewArrayInsn(
                     Location.UNKNOWN,
                     parseType(descriptor),
                     parseIntegerLiteral(numDimensions)));
@@ -731,8 +730,8 @@ public class Decompiler {
         }
 
         @Override
-        public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-            tryCatchBlocks.add(new TryCatchBlock(
+        public void visitTryCatchBlock(org.objectweb.asm.Label start, org.objectweb.asm.Label end, org.objectweb.asm.Label handler, String type) {
+            statements.add(new TryCatchBlock(
                     Location.UNKNOWN,
                     getLabel(start).name,
                     getLabel(end).name,
@@ -747,8 +746,8 @@ public class Decompiler {
         }
 
         @Override
-        public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
-            localVariables.add(new LocalVariable(
+        public void visitLocalVariable(String name, String descriptor, String signature, org.objectweb.asm.Label start, org.objectweb.asm.Label end, int index) {
+            statements.add(new LocalVariable(
                     Location.UNKNOWN,
                     name,
                     parseType(descriptor),
@@ -758,13 +757,13 @@ public class Decompiler {
         }
 
         @Override
-        public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, Label[] start, Label[] end, int[] index, String descriptor, boolean visible) {
+        public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, org.objectweb.asm.Label[] start, org.objectweb.asm.Label[] end, int[] index, String descriptor, boolean visible) {
             throw new UnsupportedOperationException("local variable annotation");
         }
 
         @Override
-        public void visitLineNumber(int line, Label start) {
-            instructions.add(new LineNumberInsn(
+        public void visitLineNumber(int line, org.objectweb.asm.Label start) {
+            statements.add(new LineNumber(
                     Location.UNKNOWN,
                     parseIntegerLiteral(line),
                     getLabel(start).name));
@@ -786,9 +785,7 @@ public class Decompiler {
                     parameterTypes,
                     exceptionTypes,
                     defaultValue,
-                    instructions,
-                    localVariables,
-                    tryCatchBlocks
+                    new Block(Location.UNKNOWN, statements)
             ));
         }
     }

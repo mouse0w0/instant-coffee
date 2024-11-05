@@ -1,7 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
 import com.github.mouse0w0.instantcoffee.model.*;
-import com.github.mouse0w0.instantcoffee.model.insn.*;
+import com.github.mouse0w0.instantcoffee.model.statement.*;
 
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -50,11 +50,22 @@ public class Unparser {
         depth++;
     }
 
+    private void push2() {
+        depth += 2;
+    }
+
     private void pop() {
-        if (depth == 0) {
+        if (depth <= 0) {
             throw new IllegalStateException();
         }
         depth--;
+    }
+
+    private void pop2() {
+        if (depth <= 1) {
+            throw new IllegalStateException();
+        }
+        depth -= 2;
     }
 
     private PrintWriter appendIndent(PrintWriter pw) {
@@ -75,7 +86,7 @@ public class Unparser {
         unparseIdentifiers(cd.identifiers, pw);
         unparseSuperclass(cd.superclass, pw);
         unparseInterfaces(cd.interfaces, pw);
-        pw.println(" {");
+        pw.append(" {").println();
         unparseVersion(cd.version, pw);
         unparseSource(cd.source, pw);
         for (InnerClassDeclaration innerClass : cd.innerClasses) {
@@ -87,7 +98,7 @@ public class Unparser {
         for (MethodDeclaration method : cd.methods) {
             unparseMethod(method, pw);
         }
-        pw.println("}");
+        pw.append("}").println();
         pop();
     }
 
@@ -224,15 +235,11 @@ public class Unparser {
             return;
         }
 
-        pw.println(" {");
-        push();
-        push();
-        unparseInstructions(md.instructions, pw);
-        unparseLocalVariables(md.localVariables, pw);
-        unparseTryCatchBlocks(md.tryCatchBlocks, pw);
-        pop();
-        pop();
-        appendIndent(pw).println("}");
+        pw.append(" {").println();
+        push2();
+        unparseStatements(md.body.statements, pw);
+        pop2();
+        appendIndent(pw).append("}").println();
     }
 
     private void unparseMethodParameters(Type[] parameterTypes, PrintWriter pw) {
@@ -256,42 +263,60 @@ public class Unparser {
         pw.append(" default ").append(defaultValue.toString());
     }
 
-    private void unparseInstructions(List<BaseInsn> instructions, PrintWriter pw) {
-        for (BaseInsn insn : instructions) {
-            if (insn instanceof Insn) {
-                unparseInsn((Insn) insn, pw);
-            } else if (insn instanceof IntInsn) {
-                unparseIntInsn((IntInsn) insn, pw);
-            } else if (insn instanceof VarInsn) {
-                unparseVarInsn((VarInsn) insn, pw);
-            } else if (insn instanceof TypeInsn) {
-                unparseTypeInsn((TypeInsn) insn, pw);
-            } else if (insn instanceof FieldInsn) {
-                unparseFieldInsn((FieldInsn) insn, pw);
-            } else if (insn instanceof MethodInsn) {
-                unparseMethodInsn((MethodInsn) insn, pw);
-            } else if (insn instanceof InvokeDynamicInsn) {
-                unparseInvokeDynamicInsn((InvokeDynamicInsn) insn, pw);
-            } else if (insn instanceof JumpInsn) {
-                unparseJumpInsn((JumpInsn) insn, pw);
-            } else if (insn instanceof LabelInsn) {
-                unparseLabelInsn((LabelInsn) insn, pw);
-            } else if (insn instanceof LdcInsn) {
-                unparseLdcInsn((LdcInsn) insn, pw);
-            } else if (insn instanceof IincInsn) {
-                unparseIincInsn((IincInsn) insn, pw);
-            } else if (insn instanceof SwitchInsn) {
-                unparseSwitchInsn((SwitchInsn) insn, pw);
-            } else if (insn instanceof NewArrayInsn) {
-                unparseNewArrayInsn((NewArrayInsn) insn, pw);
-            } else if (insn instanceof MultiANewArrayInsn) {
-                unparseMultiANewArrayInsn((MultiANewArrayInsn) insn, pw);
-            } else if (insn instanceof LineNumberInsn) {
-                unparseLineNumberInsn((LineNumberInsn) insn, pw);
-            } else {
-                throw new IllegalArgumentException();
-            }
+    private void unparseStatements(List<Statement> statements, PrintWriter pw) {
+        for (Statement statement : statements) {
+            unparseStatement(statement, pw);
         }
+    }
+
+    private void unparseStatement(Statement statement, PrintWriter pw) {
+        if (statement instanceof Insn) {
+            unparseInsn((Insn) statement, pw);
+        } else if (statement instanceof IntInsn) {
+            unparseIntInsn((IntInsn) statement, pw);
+        } else if (statement instanceof VarInsn) {
+            unparseVarInsn((VarInsn) statement, pw);
+        } else if (statement instanceof TypeInsn) {
+            unparseTypeInsn((TypeInsn) statement, pw);
+        } else if (statement instanceof FieldInsn) {
+            unparseFieldInsn((FieldInsn) statement, pw);
+        } else if (statement instanceof MethodInsn) {
+            unparseMethodInsn((MethodInsn) statement, pw);
+        } else if (statement instanceof InvokeDynamicInsn) {
+            unparseInvokeDynamicInsn((InvokeDynamicInsn) statement, pw);
+        } else if (statement instanceof JumpInsn) {
+            unparseJumpInsn((JumpInsn) statement, pw);
+        } else if (statement instanceof Label) {
+            unparseLabelInsn((Label) statement, pw);
+        } else if (statement instanceof LdcInsn) {
+            unparseLdcInsn((LdcInsn) statement, pw);
+        } else if (statement instanceof IincInsn) {
+            unparseIincInsn((IincInsn) statement, pw);
+        } else if (statement instanceof SwitchInsn) {
+            unparseSwitchInsn((SwitchInsn) statement, pw);
+        } else if (statement instanceof NewArrayInsn) {
+            unparseNewArrayInsn((NewArrayInsn) statement, pw);
+        } else if (statement instanceof MultiANewArrayInsn) {
+            unparseMultiANewArrayInsn((MultiANewArrayInsn) statement, pw);
+        } else if (statement instanceof Block) {
+            unparseBlock((Block) statement, pw);
+        } else if (statement instanceof LineNumber) {
+            unparseLineNumber((LineNumber) statement, pw);
+        } else if (statement instanceof LocalVariable) {
+            unparseLocalVariable((LocalVariable) statement, pw);
+        } else if (statement instanceof TryCatchBlock) {
+            unparseTryCatchBlock((TryCatchBlock) statement, pw);
+        } else {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    private void unparseBlock(Block block, PrintWriter pw) {
+        appendIndent(pw).append("{").println();
+        push2();
+        unparseStatements(block.statements, pw);
+        pop2();
+        appendIndent(pw).append("}").println();
     }
 
     private void unparseInsn(Insn insn, PrintWriter pw) {
@@ -341,9 +366,9 @@ public class Unparser {
         appendIndent(pw).append(jumpInsn.opcode).append(" ").append(jumpInsn.label).println();
     }
 
-    private void unparseLabelInsn(LabelInsn labelInsn, PrintWriter pw) {
+    private void unparseLabelInsn(Label label, PrintWriter pw) {
         pop();
-        appendIndent(pw).append(labelInsn.name).append(":").println();
+        appendIndent(pw).append(label.name).append(":").println();
         push();
     }
 
@@ -380,36 +405,32 @@ public class Unparser {
         pw.println();
     }
 
-    private void unparseLineNumberInsn(LineNumberInsn lineNumberInsn, PrintWriter pw) {
+    private void unparseLineNumber(LineNumber lineNumber, PrintWriter pw) {
         if (skipLineNumber) return;
         appendIndent(pw).append("line");
-        pw.append(" ").append(lineNumberInsn.line.toString());
-        pw.append(" ").append(lineNumberInsn.label);
+        pw.append(" ").append(lineNumber.line.toString());
+        pw.append(" ").append(lineNumber.label);
         pw.println();
     }
 
-    private void unparseLocalVariables(List<LocalVariable> localVariables, PrintWriter pw) {
+    private void unparseLocalVariable(LocalVariable localVariable, PrintWriter pw) {
         if (skipLocalVariable) return;
-        for (LocalVariable localVariable : localVariables) {
-            appendIndent(pw).append("var");
-            pw.append(" ").append(localVariable.name);
-            pw.append(" ").append(localVariable.type.toString());
-            pw.append(" ").append(localVariable.start);
-            pw.append(" ").append(localVariable.end);
-            pw.append(" ").append(localVariable.index.toString());
-            pw.println();
-        }
+        appendIndent(pw).append("var");
+        pw.append(" ").append(localVariable.name);
+        pw.append(" ").append(localVariable.type.toString());
+        pw.append(" ").append(localVariable.start);
+        pw.append(" ").append(localVariable.end);
+        pw.append(" ").append(localVariable.index.toString());
+        pw.println();
     }
 
-    private void unparseTryCatchBlocks(List<TryCatchBlock> tryCatchBlocks, PrintWriter pw) {
-        for (TryCatchBlock tryCatchBlock : tryCatchBlocks) {
-            appendIndent(pw).append("try");
-            pw.append(" ").append(tryCatchBlock.start);
-            pw.append(" ").append(tryCatchBlock.end);
-            pw.append(" ").append(tryCatchBlock.handler);
-            pw.append(" ").append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
-            pw.println();
-        }
+    private void unparseTryCatchBlock(TryCatchBlock tryCatchBlock, PrintWriter pw) {
+        appendIndent(pw).append("try");
+        pw.append(" ").append(tryCatchBlock.start);
+        pw.append(" ").append(tryCatchBlock.end);
+        pw.append(" ").append(tryCatchBlock.handler);
+        pw.append(" ").append(tryCatchBlock.type != null ? tryCatchBlock.type.toString() : "finally");
+        pw.println();
     }
 
     private void unparseValue(Value value, PrintWriter pw) {

@@ -59,9 +59,6 @@ public class Constants implements Opcodes {
     //    public static final int JSR_W = 201;
 
     public static final int SWITCH = 202;
-    public static final int LINE_NUMBER = 203;
-    public static final int LOCAL_VARIABLE = 204;
-    public static final int TRY_CATCH_BLOCK = 205;
 
     private static final Map<Integer, String> opcodeToName = new HashMap<>();
     private static final Map<String, Integer> nameToOpcode = new HashMap<>();
@@ -288,10 +285,6 @@ public class Constants implements Opcodes {
         //        putOpcode(JSR_W, "jsr_w");
 
         putOpcode(SWITCH, "switch");
-        putOpcode(LINE_NUMBER, "line");
-        putOpcode(LOCAL_VARIABLE, "var");
-        putOpcode(TRY_CATCH_BLOCK, "try");
-
     }
 
     private static final Map<Integer, String> handleKindName = new HashMap<>();

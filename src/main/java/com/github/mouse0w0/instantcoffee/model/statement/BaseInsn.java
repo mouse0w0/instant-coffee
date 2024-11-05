@@ -1,9 +1,8 @@
-package com.github.mouse0w0.instantcoffee.model.insn;
+package com.github.mouse0w0.instantcoffee.model.statement;
 
 import com.github.mouse0w0.instantcoffee.Location;
-import com.github.mouse0w0.instantcoffee.model.Located;
 
-public abstract class BaseInsn extends Located {
+public abstract class BaseInsn extends Statement {
     public static final BaseInsn[] EMPTY_ARRAY = {};
 
     public String opcode;

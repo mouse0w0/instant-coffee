@@ -1,7 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
 import com.github.mouse0w0.instantcoffee.model.*;
-import com.github.mouse0w0.instantcoffee.model.insn.*;
+import com.github.mouse0w0.instantcoffee.model.statement.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -158,7 +158,7 @@ public class Parser {
     }
 
     private MethodDeclaration parseInitializerDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers) {
-        MethodDeclaration methodDeclaration = new MethodDeclaration(
+        return new MethodDeclaration(
                 location,
                 annotations,
                 modifiers,
@@ -166,13 +166,13 @@ public class Parser {
                 "<clinit>",
                 Type.EMPTY_ARRAY,
                 ReferenceType.EMPTY_ARRAY,
-                null);
-        parseMethodBody(methodDeclaration);
-        return methodDeclaration;
+                null,
+                parseMethodBody(hasModifier(modifiers, "abstract", "native"))
+        );
     }
 
     private MethodDeclaration parseMethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, boolean allowDefaultClause) {
-        MethodDeclaration methodDeclaration = new MethodDeclaration(
+        return new MethodDeclaration(
                 location,
                 annotations,
                 modifiers,
@@ -180,9 +180,9 @@ public class Parser {
                 name,
                 parseMethodParameterTypes(),
                 parseMethodExceptionTypes(),
-                allowDefaultClause && peekRead("default") ? parseAnnotationValue() : null);
-        parseMethodBody(methodDeclaration);
-        return methodDeclaration;
+                allowDefaultClause && peekRead("default") ? parseAnnotationValue() : null,
+                parseMethodBody(hasModifier(modifiers, "abstract", "native"))
+        );
     }
 
     private Type[] parseMethodParameterTypes() {
@@ -208,256 +208,275 @@ public class Parser {
         return exceptionTypes.toArray(ReferenceType.EMPTY_ARRAY);
     }
 
-    private void parseMethodBody(MethodDeclaration md) {
-        boolean isAbstractOrNative = hasModifier(md.modifiers, "abstract", "native");
+    private Block parseMethodBody(boolean isAbstractOrNative) {
         if (!peek("{")) {
             if (isAbstractOrNative) {
-                return;
+                return null;
             }
             throw new CompileException("Method must have a body", location());
         }
         if (isAbstractOrNative) {
             throw new CompileException("Abstract or native method must not have a body", location());
         }
+        return parseBlock();
+    }
 
-        read();
+    private Statement parseStatement() {
+        if (peek("{")) return parseBlock();
+        if (peek("var")) return parseLocalVariable();
+        if (peek("try")) return parseTryCatchBlock();
+        if (peek("line")) return parseLineNumber();
+        if (peek(TokenType.IDENTIFIER) && peek2(":")) return parseLabel();
+        return parseBaseInsn();
+    }
+
+    private Block parseBlock() {
+        Location location = read("{").getLocation();
+        List<Statement> statements = new ArrayList<>();
         while (!peekRead("}")) {
-            Location location = location();
-            String insn = parseIdentifier();
+            statements.add(parseStatement());
+        }
+        return new Block(location, statements);
+    }
 
-            if (peekRead(":")) {
-                md.instructions.add(new LabelInsn(location, insn));
-                continue;
-            }
+    private LocalVariable parseLocalVariable() {
+        return new LocalVariable(
+                read("var").getLocation(),
+                parseIdentifier(),
+                parseType(),
+                parseIdentifier(),
+                parseIdentifier(),
+                parseIntegerLiteral()
+        );
+    }
 
-            switch (Constants.getOpcode(insn) & 0xFF) {
-                case Constants.NOP:
-                case Constants.ACONST_NULL:
-                case Constants.ICONST_M1:
-                case Constants.ICONST_0:
-                case Constants.ICONST_1:
-                case Constants.ICONST_2:
-                case Constants.ICONST_3:
-                case Constants.ICONST_4:
-                case Constants.ICONST_5:
-                case Constants.LCONST_0:
-                case Constants.LCONST_1:
-                case Constants.FCONST_0:
-                case Constants.FCONST_1:
-                case Constants.FCONST_2:
-                case Constants.DCONST_0:
-                case Constants.DCONST_1:
-                case Constants.IALOAD:
-                case Constants.LALOAD:
-                case Constants.FALOAD:
-                case Constants.DALOAD:
-                case Constants.AALOAD:
-                case Constants.BALOAD:
-                case Constants.CALOAD:
-                case Constants.SALOAD:
-                case Constants.IASTORE:
-                case Constants.LASTORE:
-                case Constants.FASTORE:
-                case Constants.DASTORE:
-                case Constants.AASTORE:
-                case Constants.BASTORE:
-                case Constants.CASTORE:
-                case Constants.SASTORE:
-                case Constants.POP:
-                case Constants.POP2:
-                case Constants.DUP:
-                case Constants.DUP_X1:
-                case Constants.DUP_X2:
-                case Constants.DUP2:
-                case Constants.DUP2_X1:
-                case Constants.DUP2_X2:
-                case Constants.SWAP:
-                case Constants.IADD:
-                case Constants.LADD:
-                case Constants.FADD:
-                case Constants.DADD:
-                case Constants.ISUB:
-                case Constants.LSUB:
-                case Constants.FSUB:
-                case Constants.DSUB:
-                case Constants.IMUL:
-                case Constants.LMUL:
-                case Constants.FMUL:
-                case Constants.DMUL:
-                case Constants.IDIV:
-                case Constants.LDIV:
-                case Constants.FDIV:
-                case Constants.DDIV:
-                case Constants.IREM:
-                case Constants.LREM:
-                case Constants.FREM:
-                case Constants.DREM:
-                case Constants.INEG:
-                case Constants.LNEG:
-                case Constants.FNEG:
-                case Constants.DNEG:
-                case Constants.ISHL:
-                case Constants.LSHL:
-                case Constants.ISHR:
-                case Constants.LSHR:
-                case Constants.IUSHR:
-                case Constants.LUSHR:
-                case Constants.IAND:
-                case Constants.LAND:
-                case Constants.IOR:
-                case Constants.LOR:
-                case Constants.IXOR:
-                case Constants.LXOR:
-                case Constants.I2L:
-                case Constants.I2F:
-                case Constants.I2D:
-                case Constants.L2I:
-                case Constants.L2F:
-                case Constants.L2D:
-                case Constants.F2I:
-                case Constants.F2L:
-                case Constants.F2D:
-                case Constants.D2I:
-                case Constants.D2L:
-                case Constants.D2F:
-                case Constants.I2B:
-                case Constants.I2C:
-                case Constants.I2S:
-                case Constants.LCMP:
-                case Constants.FCMPL:
-                case Constants.FCMPG:
-                case Constants.DCMPL:
-                case Constants.DCMPG:
-                case Constants.IRETURN:
-                case Constants.LRETURN:
-                case Constants.FRETURN:
-                case Constants.DRETURN:
-                case Constants.ARETURN:
-                case Constants.RETURN:
-                case Constants.ARRAYLENGTH:
-                case Constants.ATHROW:
-                case Constants.MONITORENTER:
-                case Constants.MONITOREXIT:
-                    md.instructions.add(new Insn(location, insn));
-                    break;
-                case Constants.IFEQ:
-                case Constants.IFNE:
-                case Constants.IFLT:
-                case Constants.IFGE:
-                case Constants.IFGT:
-                case Constants.IFLE:
-                case Constants.IF_ICMPEQ:
-                case Constants.IF_ICMPNE:
-                case Constants.IF_ICMPLT:
-                case Constants.IF_ICMPGE:
-                case Constants.IF_ICMPGT:
-                case Constants.IF_ICMPLE:
-                case Constants.IF_ACMPEQ:
-                case Constants.IF_ACMPNE:
-                case Constants.GOTO:
-                case Constants.JSR:
-                case Constants.IFNULL:
-                case Constants.IFNONNULL:
-                    md.instructions.add(new JumpInsn(location, insn, parseIdentifier()));
-                    break;
-                case Constants.TABLESWITCH:
-                case Constants.LOOKUPSWITCH:
-                case Constants.SWITCH: {
-                    List<SwitchCase> cases = new ArrayList<>();
-                    String dflt = null;
-                    read("{");
-                    while (!peekRead("}")) {
-                        if (peek(TokenType.INTEGER_LITERAL)) {
-                            cases.add(parseSwitchCase());
-                        } else if (peek("default")) {
-                            Token t = read();
-                            if (dflt != null) {
-                                throw new CompileException("Duplicate \"default\" label", t.getLocation());
-                            }
-                            read(":");
-                            dflt = parseIdentifier();
-                        } else {
-                            throw new CompileException("integer literal or \"default\" expected", location());
+
+    private TryCatchBlock parseTryCatchBlock() {
+        return new TryCatchBlock(
+                read("try").getLocation(),
+                parseIdentifier(),
+                parseIdentifier(),
+                parseIdentifier(),
+                peekRead("finally") ? null : parseReferenceType()
+        );
+    }
+
+    private LineNumber parseLineNumber() {
+        return new LineNumber(
+                read("line").getLocation(),
+                parseIntegerLiteral(),
+                parseIdentifier()
+        );
+    }
+
+    private Label parseLabel() {
+        Location location = location();
+        String name = parseIdentifier();
+        read(":");
+        return new Label(location, name);
+    }
+
+    private BaseInsn parseBaseInsn() {
+        Location location = location();
+        String insn = parseIdentifier();
+        switch (Constants.getOpcode(insn) & 0xFF) {
+            case Constants.NOP:
+            case Constants.ACONST_NULL:
+            case Constants.ICONST_M1:
+            case Constants.ICONST_0:
+            case Constants.ICONST_1:
+            case Constants.ICONST_2:
+            case Constants.ICONST_3:
+            case Constants.ICONST_4:
+            case Constants.ICONST_5:
+            case Constants.LCONST_0:
+            case Constants.LCONST_1:
+            case Constants.FCONST_0:
+            case Constants.FCONST_1:
+            case Constants.FCONST_2:
+            case Constants.DCONST_0:
+            case Constants.DCONST_1:
+            case Constants.IALOAD:
+            case Constants.LALOAD:
+            case Constants.FALOAD:
+            case Constants.DALOAD:
+            case Constants.AALOAD:
+            case Constants.BALOAD:
+            case Constants.CALOAD:
+            case Constants.SALOAD:
+            case Constants.IASTORE:
+            case Constants.LASTORE:
+            case Constants.FASTORE:
+            case Constants.DASTORE:
+            case Constants.AASTORE:
+            case Constants.BASTORE:
+            case Constants.CASTORE:
+            case Constants.SASTORE:
+            case Constants.POP:
+            case Constants.POP2:
+            case Constants.DUP:
+            case Constants.DUP_X1:
+            case Constants.DUP_X2:
+            case Constants.DUP2:
+            case Constants.DUP2_X1:
+            case Constants.DUP2_X2:
+            case Constants.SWAP:
+            case Constants.IADD:
+            case Constants.LADD:
+            case Constants.FADD:
+            case Constants.DADD:
+            case Constants.ISUB:
+            case Constants.LSUB:
+            case Constants.FSUB:
+            case Constants.DSUB:
+            case Constants.IMUL:
+            case Constants.LMUL:
+            case Constants.FMUL:
+            case Constants.DMUL:
+            case Constants.IDIV:
+            case Constants.LDIV:
+            case Constants.FDIV:
+            case Constants.DDIV:
+            case Constants.IREM:
+            case Constants.LREM:
+            case Constants.FREM:
+            case Constants.DREM:
+            case Constants.INEG:
+            case Constants.LNEG:
+            case Constants.FNEG:
+            case Constants.DNEG:
+            case Constants.ISHL:
+            case Constants.LSHL:
+            case Constants.ISHR:
+            case Constants.LSHR:
+            case Constants.IUSHR:
+            case Constants.LUSHR:
+            case Constants.IAND:
+            case Constants.LAND:
+            case Constants.IOR:
+            case Constants.LOR:
+            case Constants.IXOR:
+            case Constants.LXOR:
+            case Constants.I2L:
+            case Constants.I2F:
+            case Constants.I2D:
+            case Constants.L2I:
+            case Constants.L2F:
+            case Constants.L2D:
+            case Constants.F2I:
+            case Constants.F2L:
+            case Constants.F2D:
+            case Constants.D2I:
+            case Constants.D2L:
+            case Constants.D2F:
+            case Constants.I2B:
+            case Constants.I2C:
+            case Constants.I2S:
+            case Constants.LCMP:
+            case Constants.FCMPL:
+            case Constants.FCMPG:
+            case Constants.DCMPL:
+            case Constants.DCMPG:
+            case Constants.IRETURN:
+            case Constants.LRETURN:
+            case Constants.FRETURN:
+            case Constants.DRETURN:
+            case Constants.ARETURN:
+            case Constants.RETURN:
+            case Constants.ARRAYLENGTH:
+            case Constants.ATHROW:
+            case Constants.MONITORENTER:
+            case Constants.MONITOREXIT:
+                return new Insn(location, insn);
+            case Constants.IFEQ:
+            case Constants.IFNE:
+            case Constants.IFLT:
+            case Constants.IFGE:
+            case Constants.IFGT:
+            case Constants.IFLE:
+            case Constants.IF_ICMPEQ:
+            case Constants.IF_ICMPNE:
+            case Constants.IF_ICMPLT:
+            case Constants.IF_ICMPGE:
+            case Constants.IF_ICMPGT:
+            case Constants.IF_ICMPLE:
+            case Constants.IF_ACMPEQ:
+            case Constants.IF_ACMPNE:
+            case Constants.GOTO:
+            case Constants.JSR:
+            case Constants.IFNULL:
+            case Constants.IFNONNULL:
+                return new JumpInsn(location, insn, parseIdentifier());
+            case Constants.TABLESWITCH:
+            case Constants.LOOKUPSWITCH:
+            case Constants.SWITCH: {
+                List<SwitchCase> cases = new ArrayList<>();
+                String dflt = null;
+                read("{");
+                while (!peekRead("}")) {
+                    if (peek(TokenType.INTEGER_LITERAL)) {
+                        cases.add(parseSwitchCase());
+                    } else if (peek("default")) {
+                        Token t = read();
+                        if (dflt != null) {
+                            throw new CompileException("Duplicate \"default\" label", t.getLocation());
                         }
+                        read(":");
+                        dflt = parseIdentifier();
+                    } else {
+                        throw new CompileException("integer literal or \"default\" expected", location());
                     }
-                    md.instructions.add(new SwitchInsn(location, cases.toArray(SwitchCase.EMPTY_ARRAY), dflt));
-                    break;
                 }
-                case Constants.ILOAD:
-                case Constants.LLOAD:
-                case Constants.FLOAD:
-                case Constants.DLOAD:
-                case Constants.ALOAD:
-                case Constants.ISTORE:
-                case Constants.LSTORE:
-                case Constants.FSTORE:
-                case Constants.DSTORE:
-                case Constants.ASTORE:
-                case Constants.RET:
-                    md.instructions.add(new VarInsn(location, insn, parseIntegerLiteral()));
-                    break;
-                case Constants.BIPUSH:
-                case Constants.SIPUSH:
-                    md.instructions.add(new IntInsn(location, insn, parseIntegerLiteral()));
-                    break;
-                case Constants.LDC:
-                    md.instructions.add(new LdcInsn(location, parseValue()));
-                    break;
-                case Constants.GETSTATIC:
-                case Constants.PUTSTATIC:
-                case Constants.GETFIELD:
-                case Constants.PUTFIELD:
-                    md.instructions.add(new FieldInsn(location, insn, parseReferenceType(), parseIdentifier(), parseType()));
-                    break;
-                case Constants.INVOKEVIRTUAL:
-                case Constants.INVOKESPECIAL:
-                case Constants.INVOKESTATIC:
-                case Constants.INVOKEINTERFACE:
-                    md.instructions.add(new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodType()));
-                    break;
-                case Constants.INVOKEDYNAMIC:
-                    read("{");
-                    md.instructions.add(new InvokeDynamicInsn(location, parseIdentifier(), parseMethodType(), parseHandle(), parseBootstrapMethodArguments()));
-                    read("}");
-                    break;
-                case Constants.NEW:
-                case Constants.ANEWARRAY:
-                case Constants.CHECKCAST:
-                case Constants.INSTANCEOF:
-                    md.instructions.add(new TypeInsn(location, insn, parseReferenceType()));
-                    break;
-                case Constants.IINC:
-                    md.instructions.add(new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral()));
-                    break;
-                case Constants.NEWARRAY:
-                    md.instructions.add(new NewArrayInsn(location, parsePrimitiveType()));
-                    break;
-                case Constants.MULTIANEWARRAY:
-                    md.instructions.add(new MultiANewArrayInsn(location, parseType(), parseIntegerLiteral()));
-                    break;
-                case Constants.LINE_NUMBER:
-                    md.instructions.add(new LineNumberInsn(location, parseIntegerLiteral(), parseIdentifier()));
-                    break;
-                case Constants.LOCAL_VARIABLE: {
-                    String name = parseIdentifier();
-                    Type type = parseType();
-                    String start = parseIdentifier();
-                    String end = parseIdentifier();
-                    IntegerLiteral index = parseIntegerLiteral();
-                    md.localVariables.add(new LocalVariable(location, name, type, start, end, index));
-                    break;
-                }
-                case Constants.TRY_CATCH_BLOCK: {
-                    String start = parseIdentifier();
-                    String end = parseIdentifier();
-                    String handle = parseIdentifier();
-                    ReferenceType type = peekRead("finally") ? null : parseReferenceType();
-                    md.tryCatchBlocks.add(new TryCatchBlock(location, start, end, handle, type));
-                    break;
-                }
-                default:
-                    throw new CompileException("Unknown opcode: " + insn, location);
+                return new SwitchInsn(location, cases.toArray(SwitchCase.EMPTY_ARRAY), dflt);
             }
+            case Constants.ILOAD:
+            case Constants.LLOAD:
+            case Constants.FLOAD:
+            case Constants.DLOAD:
+            case Constants.ALOAD:
+            case Constants.ISTORE:
+            case Constants.LSTORE:
+            case Constants.FSTORE:
+            case Constants.DSTORE:
+            case Constants.ASTORE:
+            case Constants.RET:
+                return new VarInsn(location, insn, parseIntegerLiteral());
+            case Constants.BIPUSH:
+            case Constants.SIPUSH:
+                return new IntInsn(location, insn, parseIntegerLiteral());
+            case Constants.LDC:
+                return new LdcInsn(location, parseValue());
+            case Constants.GETSTATIC:
+            case Constants.PUTSTATIC:
+            case Constants.GETFIELD:
+            case Constants.PUTFIELD:
+                return new FieldInsn(location, insn, parseReferenceType(), parseIdentifier(), parseType());
+            case Constants.INVOKEVIRTUAL:
+            case Constants.INVOKESPECIAL:
+            case Constants.INVOKESTATIC:
+            case Constants.INVOKEINTERFACE:
+                return new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodType());
+            case Constants.INVOKEDYNAMIC:
+                read("{");
+                String name = parseIdentifier();
+                MethodType methodType = parseMethodType();
+                Handle bootstrapMethod = parseHandle();
+                Value[] bootstrapMethodArguments = parseBootstrapMethodArguments();
+                read("}");
+                return new InvokeDynamicInsn(location, name, methodType, bootstrapMethod, bootstrapMethodArguments);
+            case Constants.NEW:
+            case Constants.ANEWARRAY:
+            case Constants.CHECKCAST:
+            case Constants.INSTANCEOF:
+                return new TypeInsn(location, insn, parseReferenceType());
+            case Constants.IINC:
+                return new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral());
+            case Constants.NEWARRAY:
+                return new NewArrayInsn(location, parsePrimitiveType());
+            case Constants.MULTIANEWARRAY:
+                return new MultiANewArrayInsn(location, parseType(), parseIntegerLiteral());
+            default:
+                throw new CompileException("Unknown opcode: " + insn, location);
         }
     }
 

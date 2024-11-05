@@ -1,10 +1,7 @@
 package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
-import com.github.mouse0w0.instantcoffee.model.insn.BaseInsn;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.github.mouse0w0.instantcoffee.model.statement.Block;
 
 public class MethodDeclaration extends Located {
     public static final MethodDeclaration[] EMPTY_ARRAY = {};
@@ -17,9 +14,7 @@ public class MethodDeclaration extends Located {
     public ReferenceType[] exceptionTypes;
     public AnnotationValue defaultValue;
 
-    public List<BaseInsn> instructions;
-    public List<LocalVariable> localVariables;
-    public List<TryCatchBlock> tryCatchBlocks;
+    public Block body;
 
     public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue) {
         super(location);
@@ -30,12 +25,9 @@ public class MethodDeclaration extends Located {
         this.parameterTypes = parameterTypes;
         this.exceptionTypes = exceptionTypes;
         this.defaultValue = defaultValue;
-        this.instructions = new ArrayList<>();
-        this.localVariables = new ArrayList<>();
-        this.tryCatchBlocks = new ArrayList<>();
     }
 
-    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue, List<BaseInsn> instructions, List<LocalVariable> localVariables, List<TryCatchBlock> tryCatchBlocks) {
+    public MethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, Type[] parameterTypes, ReferenceType[] exceptionTypes, AnnotationValue defaultValue, Block body) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
@@ -44,8 +36,6 @@ public class MethodDeclaration extends Located {
         this.parameterTypes = parameterTypes;
         this.exceptionTypes = exceptionTypes;
         this.defaultValue = defaultValue;
-        this.instructions = instructions;
-        this.localVariables = localVariables;
-        this.tryCatchBlocks = tryCatchBlocks;
+        this.body = body;
     }
 }

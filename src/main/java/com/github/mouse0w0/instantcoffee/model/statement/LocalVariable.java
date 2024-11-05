@@ -1,8 +1,10 @@
-package com.github.mouse0w0.instantcoffee.model;
+package com.github.mouse0w0.instantcoffee.model.statement;
 
 import com.github.mouse0w0.instantcoffee.Location;
+import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
+import com.github.mouse0w0.instantcoffee.model.Type;
 
-public class LocalVariable extends Located {
+public class LocalVariable extends Statement {
     public static final LocalVariable[] EMPTY_ARRAY = {};
 
     public String name;
