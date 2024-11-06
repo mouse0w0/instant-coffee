@@ -1,0 +1,22 @@
+public class Block {
+
+  version 8
+
+  public static void method(int, int) {
+      iload 0
+      ifne A
+      iinc 0 1
+      goto B
+    A:
+      iinc 0 2
+    B:
+      iload 1
+      ifeq C
+      iinc 1 1
+      goto D
+    C:
+      iinc 1 2
+    D:
+      return
+  }
+}
