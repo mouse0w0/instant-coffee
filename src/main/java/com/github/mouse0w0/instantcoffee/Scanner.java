@@ -314,34 +314,32 @@ public class Scanner {
     }
 
     private boolean peekRead(int expected) {
-        if (peek() == expected) {
-            sb.append((char) nextChar);
-            nextChar = next2Char;
-            next2Char = -1;
-            return true;
-        }
-        return false;
+        final int result = peek();
+        if (result != expected) return false;
+        nextChar = next2Char;
+        next2Char = -1;
+        sb.append((char) result);
+        return true;
     }
 
     private boolean peekRead(String expectedCharacters) {
-        if (peek() == -1) return false;
-        if (expectedCharacters.indexOf(peek()) == -1) return false;
-        sb.append((char) nextChar);
+        final int result = peek();
+        if (result == -1) return false;
+        if (expectedCharacters.indexOf(result) == -1) return false;
         nextChar = next2Char;
         next2Char = -1;
+        sb.append((char) result);
         return true;
     }
 
     private int read() {
-        peek();
-        if (nextChar == -1) {
+        final int result = peek();
+        if (result == -1) {
             throw new CompileException("Unexpected end-of-file", location());
         }
-
-        final int result = nextChar;
-        sb.append((char) nextChar);
         nextChar = next2Char;
         next2Char = -1;
+        sb.append((char) result);
         return result;
     }
 
@@ -352,7 +350,7 @@ public class Scanner {
 
     private int peek2() {
         if (next2Char != -1) return next2Char;
-        peek();
+        if (nextChar == -1) nextChar = read0();
         return next2Char = read0();
     }
 
