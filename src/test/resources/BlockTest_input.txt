@@ -1,4 +1,5 @@
 public class Block {
+
   version 8
 
   public static void method(int, int) {

@@ -90,7 +90,7 @@ public class Scanner {
         }
 
         // Scan numeric literal
-        if (isDecimalDigit(peek()) || (peek() == '.' && isDecimalDigit(peek2()))) {
+        if (peek() == '-' || isDecimalDigit(peek()) || (peek() == '.' && isDecimalDigit(peek2()))) {
             return scanNumericLiteral();
         }
 
@@ -123,6 +123,8 @@ public class Scanner {
     }
 
     private TokenType scanNumericLiteral() {
+        peekRead('-');
+
         if (peekRead('0')) {
             // 0L
             if (peekRead("bBsSlL")) return TokenType.INTEGER_LITERAL;
