@@ -1,11 +1,11 @@
 package com.github.mouse0w0.instantcoffee;
 
+import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
 import com.github.mouse0w0.instantcoffee.model.Handle;
 import com.github.mouse0w0.instantcoffee.model.Type;
-import com.github.mouse0w0.instantcoffee.model.*;
-import com.github.mouse0w0.instantcoffee.model.statement.Label;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
+import com.github.mouse0w0.instantcoffee.model.statement.Label;
 import org.objectweb.asm.*;
 
 import java.util.ArrayList;
@@ -17,8 +17,25 @@ import java.util.function.Consumer;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Decompiler {
+    private static final ModuleVisitor SKIP_MODULE_VISITOR = new ModuleVisitor(Opcodes.ASM9) {
+    };
+    private static final RecordComponentVisitor SKIP_RECORD_COMPONENT_VISITOR = new RecordComponentVisitor(Opcodes.ASM9) {
+    };
+    private static final AnnotationVisitor SKIP_ANNOTATION_VISITOR = new AnnotationVisitor(Opcodes.ASM9) {
+    };
+
     public static ClassDeclaration decompile(ClassReader cr) {
         return new Decompiler().decompileClass(cr);
+    }
+
+    private boolean failOnUnsupportedFeature;
+
+    public boolean isFailOnUnsupportedFeature() {
+        return failOnUnsupportedFeature;
+    }
+
+    public void setFailOnUnsupportedFeature(boolean failOnUnsupportedFeature) {
+        this.failOnUnsupportedFeature = failOnUnsupportedFeature;
     }
 
     public ClassDeclaration decompileClass(ClassReader cr) {
@@ -350,7 +367,7 @@ public class Decompiler {
         return new EnumLiteral(Location.UNKNOWN, parseInternalName(descriptor, 1, descriptor.length() - 1), value);
     }
 
-    private static class MyClassVisitor extends ClassVisitor {
+    private class MyClassVisitor extends ClassVisitor {
         private IntegerLiteral version;
         private Modifier[] modifiers;
         private String[] identifiers;
@@ -390,17 +407,24 @@ public class Decompiler {
 
         @Override
         public ModuleVisitor visitModule(String name, int access, String version) {
-            throw new UnsupportedOperationException("module");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("module");
+            }
+            return SKIP_MODULE_VISITOR;
         }
 
         @Override
         public void visitNestHost(String nestHost) {
-            throw new UnsupportedOperationException("nest host");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("nest host");
+            }
         }
 
         @Override
         public void visitOuterClass(String owner, String name, String descriptor) {
-            throw new UnsupportedOperationException("outer class");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("outer class");
+            }
         }
 
         @Override
@@ -410,32 +434,45 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("type annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("type annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
         public void visitAttribute(Attribute attribute) {
-            throw new UnsupportedOperationException("attribute");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("attribute");
+            }
         }
 
         @Override
         public void visitNestMember(String nestMember) {
-            throw new UnsupportedOperationException("nest member");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("nest member");
+            }
         }
 
         @Override
         public void visitPermittedSubclass(String permittedSubclass) {
-            throw new UnsupportedOperationException("permitted subclass");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("permitted subclass");
+            }
         }
 
         @Override
         public void visitInnerClass(String name, String outerName, String innerName, int access) {
+
             innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, parseClassModifiers(access), parseIdentifiers(outerName), innerName));
         }
 
         @Override
         public RecordComponentVisitor visitRecordComponent(String name, String descriptor, String signature) {
-            throw new UnsupportedOperationException("record component");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("record component");
+            }
+            return SKIP_RECORD_COMPONENT_VISITOR;
         }
 
         @Override
@@ -454,7 +491,7 @@ public class Decompiler {
         }
     }
 
-    private static class MyFieldVisitor extends FieldVisitor {
+    private class MyFieldVisitor extends FieldVisitor {
         private final Modifier[] modifiers;
         private final Type type;
         private final String name;
@@ -480,12 +517,17 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("type annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("type annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
         public void visitAttribute(Attribute attribute) {
-            throw new UnsupportedOperationException("attribute");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("attribute");
+            }
         }
 
         @Override
@@ -494,7 +536,7 @@ public class Decompiler {
         }
     }
 
-    private static class MyMethodVisitor extends MethodVisitor {
+    private class MyMethodVisitor extends MethodVisitor {
         private final Modifier[] modifiers;
         private final String name;
 
@@ -539,7 +581,9 @@ public class Decompiler {
 
         @Override
         public void visitParameter(String name, int access) {
-            throw new UnsupportedOperationException("parameter");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("parameter");
+            }
         }
 
         @Override
@@ -554,22 +598,32 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("type annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("type annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
         public void visitAnnotableParameterCount(int parameterCount, boolean visible) {
-            throw new UnsupportedOperationException("parameter annotation count");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("parameter annotation count");
+            }
         }
 
         @Override
         public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("parameter annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("parameter annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
         public void visitAttribute(Attribute attribute) {
-            throw new UnsupportedOperationException("attribute");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("attribute");
+            }
         }
 
         @Override
@@ -579,7 +633,9 @@ public class Decompiler {
 
         @Override
         public void visitFrame(int type, int numLocal, Object[] local, int numStack, Object[] stack) {
-            throw new UnsupportedOperationException("frame");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("frame");
+            }
         }
 
         @Override
@@ -665,7 +721,7 @@ public class Decompiler {
             return labelInsn;
         }
 
-        private static String getLabelName(int idx) {
+        private String getLabelName(int idx) {
             char[] buf = new char[7];
             int charPos = 7;
 
@@ -726,7 +782,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitInsnAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("insn annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("insn annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
@@ -742,7 +801,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitTryCatchAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("try catch annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("try catch annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
@@ -758,7 +820,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, org.objectweb.asm.Label[] start, org.objectweb.asm.Label[] end, int[] index, String descriptor, boolean visible) {
-            throw new UnsupportedOperationException("local variable annotation");
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("local variable annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
         }
 
         @Override
