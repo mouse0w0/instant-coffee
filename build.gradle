@@ -1,12 +1,30 @@
 plugins {
     id 'java'
     id 'idea'
+    id 'maven-publish'
 }
 
 group 'com.github.mouse0w0'
 version '1.0.0'
 
 sourceCompatibility = targetCompatibility = 1.8
+
+sourceSets {
+    cli {
+        java {
+            srcDir 'src/cli/java'
+        }
+        resources {
+            srcDir 'src/cli/resources'
+        }
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    cliImplementation.extendsFrom implementation
+}
 
 repositories {
     maven { url 'https://maven.aliyun.com/repository/public' }
@@ -18,12 +36,42 @@ dependencies {
     implementation 'org.ow2.asm:asm-commons:9.7.1'
     implementation 'org.ow2.asm:asm-util:9.7.1'
 
+    cliImplementation 'net.sf.jopt-simple:jopt-simple:5.0.4'
+
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
 }
 
+tasks.register('cliJar', Jar) {
+    dependsOn tasks.classes, tasks.cliClasses
+    group = 'build'
+    description = 'Assembles a CLI jar including main and cli code and all dependencies.'
+
+    archiveClassifier.set('cli')
+
+    from sourceSets.main.output
+    from sourceSets.cli.output
+
+    dependsOn configurations.cliRuntimeClasspath
+    from(configurations.cliRuntimeClasspath.collect {
+        it.isDirectory() ? it : zipTree(it)
+    }) {
+        exclude 'module-info.class', 'META-INF/**'
+    }
+
+    manifest {
+        attributes('Main-Class': 'com.github.mouse0w0.instantcoffee.Cli')
+    }
+}
+
+assemble.dependsOn cliJar
+
 test {
     useJUnitPlatform()
+}
+
+java {
+    withSourcesJar()
 }
 
 idea {
@@ -34,5 +82,17 @@ idea {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+publishing {
+    publications {
+        create('maven', MavenPublication) {
+            from components.java
+
+            artifact(cliJar) {
+                classifier = 'cli'
+            }
+        }
+    }
 }
 
