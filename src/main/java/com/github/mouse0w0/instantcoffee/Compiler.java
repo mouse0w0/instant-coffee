@@ -154,7 +154,7 @@ public class Compiler {
             } else if ("@interface".equals(keyword)) {
                 access |= ACC_ANNOTATION | ACC_INTERFACE | ACC_ABSTRACT;
             } else if ("enum".equals(keyword)) {
-                access |= ACC_ENUM | ACC_SUPER | ACC_FINAL;
+                access |= ACC_ENUM | ACC_SUPER;
             } else {
                 throw new CompileException("Access modifier " + keyword + " not allowed for class", modifier.getLocation());
             }
@@ -213,7 +213,7 @@ public class Compiler {
             } else if ("@interface".equals(keyword)) {
                 access |= ACC_ANNOTATION | ACC_INTERFACE | ACC_ABSTRACT;
             } else if ("enum".equals(keyword)) {
-                access |= ACC_ENUM | ACC_FINAL;
+                access |= ACC_ENUM;
             } else {
                 throw new CompileException("Access modifier " + keyword + " not allowed for inner class", modifier.getLocation());
             }

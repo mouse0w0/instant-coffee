@@ -73,6 +73,8 @@ public class Decompiler {
             l.add(new Modifier(Location.UNKNOWN, "synthetic"));
         if ((access & ACC_STATIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "static"));
+        if ((access & ACC_FINAL) != 0)
+            l.add(new Modifier(Location.UNKNOWN, "final"));
 
         if ((access & ACC_RECORD) != 0) {
             l.add(new Modifier(Location.UNKNOWN, "record"));
@@ -83,8 +85,6 @@ public class Decompiler {
         } else if ((access & ACC_INTERFACE) != 0) {
             l.add(new Modifier(Location.UNKNOWN, "interface"));
         } else {
-            if ((access & ACC_FINAL) != 0)
-                l.add(new Modifier(Location.UNKNOWN, "final"));
             if ((access & ACC_ABSTRACT) != 0)
                 l.add(new Modifier(Location.UNKNOWN, "abstract"));
             if ((access & ACC_SUPER) != 0)
@@ -463,7 +463,6 @@ public class Decompiler {
 
         @Override
         public void visitInnerClass(String name, String outerName, String innerName, int access) {
-
             innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, parseClassModifiers(access), parseIdentifiers(outerName), innerName));
         }
 
