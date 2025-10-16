@@ -104,7 +104,7 @@ public class Utils {
     }
 
     public static byte[] compile(String s) {
-        return new Compiler().compile(new Parser(new TokenStream(new Scanner(new StringReader(s)))).parseClassDeclaration()).toByteArray();
+        return new Compiler().compile(new Parser(s).parseClassDeclaration()).toByteArray();
     }
 
     public static String decompile(Class<?> clazz) {

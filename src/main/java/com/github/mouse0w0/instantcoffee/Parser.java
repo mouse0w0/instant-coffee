@@ -4,6 +4,7 @@ import com.github.mouse0w0.instantcoffee.model.*;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
 
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +45,10 @@ public class Parser {
     };
 
     private final TokenStream tokenStream;
+
+    public Parser(String source) {
+        this(new TokenStream(new Scanner(new StringReader(source))));
+    }
 
     public Parser(Reader reader) {
         this(new TokenStream(new Scanner(reader)));
