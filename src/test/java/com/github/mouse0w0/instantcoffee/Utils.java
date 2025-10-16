@@ -12,10 +12,14 @@ import java.nio.file.Paths;
 
 public class Utils {
     public static void validate(Class<?> clazz) {
-        validate(clazz, false);
+        validate(clazz, false, false);
     }
 
-    public static void validate(Class<?> clazz, boolean print) {
+    public static void validateIgnoreTextified(Class<?> clazz) {
+        validate(clazz, true, false);
+    }
+
+    public static void validate(Class<?> clazz, boolean ignoredTextified, boolean print) {
         String decompiledRaw = decompile(clazz);
         String textifiedRaw = textify(clazz);
 
@@ -34,7 +38,7 @@ public class Utils {
             writeString(Paths.get(clazz.getSimpleName() + "_textified_new.txt"), textifiedNew);
         }
 
-        if (decompiledRaw.equals(decompiledNew) && textifiedRaw.equals(textifiedNew)) {
+        if (decompiledRaw.equals(decompiledNew) && (ignoredTextified || textifiedRaw.equals(textifiedNew))) {
             return;
         }
 

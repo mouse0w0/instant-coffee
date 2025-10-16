@@ -22,7 +22,7 @@ public class Compiler {
     public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
         int version = getVersion(cd.version);
         int access = getClassAccess(cd.modifiers);
-        String name = getInternalName(cd.identifiers);
+        String name = getInternalName2(cd.identifiers);
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
         cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
@@ -35,11 +35,19 @@ public class Compiler {
         return cf;
     }
 
-    private String getInternalName(ReferenceType type) {
-        return getInternalName(type.identifiers);
+    private String getInternalName(Type type) {
+        if (type instanceof ReferenceType) {
+            return getInternalName2((ReferenceType) type);
+        } else {
+            return getDescriptor(type);
+        }
     }
 
-    private String getInternalName(String[] identifiers) {
+    private String getInternalName2(ReferenceType type) {
+        return getInternalName2(type.identifiers);
+    }
+
+    private String getInternalName2(String[] identifiers) {
         if (identifiers.length == 1) {
             return identifiers[0];
         }
@@ -65,7 +73,7 @@ public class Compiler {
     }
 
     private String getDescriptor(String[] identifiers) {
-        return "L" + getInternalName(identifiers) + ";";
+        return "L" + getInternalName2(identifiers) + ";";
     }
 
     private String getDescriptor2(PrimitiveType type) {
@@ -96,7 +104,7 @@ public class Compiler {
     }
 
     private String getDescriptor2(ReferenceType type) {
-        return "L" + getInternalName(type.identifiers) + ";";
+        return "L" + getInternalName2(type.identifiers) + ";";
     }
 
     private String getDescriptor2(VoidType type) {
@@ -163,14 +171,14 @@ public class Compiler {
     }
 
     private String getSuperclass(ReferenceType superclass) {
-        return superclass != null ? getInternalName(superclass.identifiers) : "java/lang/Object";
+        return superclass != null ? getInternalName2(superclass.identifiers) : "java/lang/Object";
     }
 
     private String[] getInterfaces(ReferenceType[] interfaces) {
         if (interfaces.length == 0) return null;
         List<String> l = new ArrayList<>();
         for (ReferenceType inte : interfaces) {
-            l.add(getInternalName(inte.identifiers));
+            l.add(getInternalName2(inte.identifiers));
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
@@ -182,7 +190,7 @@ public class Compiler {
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
         for (InnerClassDeclaration innerClass : innerClasses) {
-            String name = getInternalName(innerClass.name);
+            String name = getInternalName2(innerClass.name);
             String innerName = innerClass.innerName;
             int access = getInnerClassAccess(innerClass.modifiers);
 
@@ -290,7 +298,7 @@ public class Compiler {
     private String[] getMethodExceptions(ReferenceType[] types) {
         List<String> l = new ArrayList<>();
         for (ReferenceType type : types) {
-            l.add(getInternalName(type));
+            l.add(getInternalName2(type));
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
@@ -431,7 +439,7 @@ public class Compiler {
     }
 
     private void compileFieldInsn(FieldInsn insn, MethodVisitor mv) {
-        mv.visitFieldInsn(getOpcode(insn.opcode), getInternalName(insn.owner), insn.name, getDescriptor(insn.type));
+        mv.visitFieldInsn(getOpcode(insn.opcode), getInternalName2(insn.owner), insn.name, getDescriptor(insn.type));
     }
 
     private void compileMethodInsn(MethodInsn insn, MethodVisitor mv) {
@@ -609,7 +617,7 @@ public class Compiler {
                 start,
                 end,
                 handler,
-                tryCatchBlock.type != null ? getInternalName(tryCatchBlock.type) : null);
+                tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
     private void compileAnnotations(Annotation[] annotations, ClassFile cf) {
@@ -830,7 +838,7 @@ public class Compiler {
 
     private org.objectweb.asm.Handle getConstantValue2(Handle h) {
         int kind = getHandleKind(h.kind);
-        String owner = getInternalName(h.owner);
+        String owner = getInternalName2(h.owner);
         String name = h.name;
         String descriptor = getHandleDescriptor(h.type);
         boolean isInterface = (kind & FLAG_INTERFACE) != 0;

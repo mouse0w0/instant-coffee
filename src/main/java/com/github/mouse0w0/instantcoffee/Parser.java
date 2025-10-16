@@ -481,7 +481,7 @@ public class Parser {
             case Constants.INVOKESPECIAL:
             case Constants.INVOKESTATIC:
             case Constants.INVOKEINTERFACE:
-                return new MethodInsn(location, insn, parseReferenceType(), parseIdentifierOrInit(), parseMethodType());
+                return new MethodInsn(location, insn, parseType(), parseIdentifierOrInit(), parseMethodType());
             case Constants.INVOKEDYNAMIC:
                 read("{");
                 String name = parseIdentifier();
@@ -494,7 +494,7 @@ public class Parser {
             case Constants.ANEWARRAY:
             case Constants.CHECKCAST:
             case Constants.INSTANCEOF:
-                return new TypeInsn(location, insn, parseReferenceType());
+                return new TypeInsn(location, insn, parseType());
             case Constants.IINC:
                 return new IincInsn(location, parseIntegerLiteral(), parseIntegerLiteral());
             case Constants.NEWARRAY:

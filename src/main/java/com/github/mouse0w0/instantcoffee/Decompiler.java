@@ -157,25 +157,33 @@ public class Decompiler {
     }
 
     private static String[] parseIdentifiers(String internalName, int begin, int end) {
-        List<String> l = new ArrayList<>();
-        parseIdentifiers(internalName, begin, end, l);
-        return l.toArray(EMPTY_STRING_ARRAY);
-    }
-
-    private static void parseIdentifiers(String internalName, int begin, int end, List<String> list) {
+        List<String> list = new ArrayList<>();
         int prev = begin, next;
         while ((next = internalName.indexOf('/', prev)) != -1) {
             list.add(internalName.substring(prev, next));
             prev = next + 1;
         }
         list.add(internalName.substring(prev, end));
+        return list.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private static ReferenceType parseInternalName(String internalName) {
-        return parseInternalName(internalName, 0, internalName.length());
+    private static Type parseArrayOrInternal(String internalName) {
+        return parseArrayOrInternal(internalName, 0, internalName.length());
     }
 
-    private static ReferenceType parseInternalName(String internalName, int begin, int end) {
+    private static Type parseArrayOrInternal(String internalName, int begin, int end) {
+        if (internalName.charAt(begin) == '[') {
+            return parseType(internalName, begin, end);
+        } else {
+            return parseInternal(internalName, begin, end);
+        }
+    }
+
+    private static ReferenceType parseInternal(String internalName) {
+        return parseInternal(internalName, 0, internalName.length());
+    }
+
+    private static ReferenceType parseInternal(String internalName, int begin, int end) {
         return new ReferenceType(Location.UNKNOWN, parseIdentifiers(internalName, begin, end));
     }
 
@@ -206,7 +214,7 @@ public class Decompiler {
             case '[':
                 return new ArrayType(Location.UNKNOWN, parseType(typeDescriptor, begin + 1, end));
             case 'L':
-                return parseInternalName(typeDescriptor, begin + 1, end - 1);
+                return parseInternal(typeDescriptor, begin + 1, end - 1);
             case '(':
                 throw new IllegalArgumentException("method descriptor");
             default:
@@ -323,7 +331,7 @@ public class Decompiler {
 
     private static Handle parseHandle(org.objectweb.asm.Handle handle) {
         String kind = getHandleKindName(handle.getTag() | (handle.isInterface() && handle.getTag() != H_INVOKEINTERFACE ? FLAG_INTERFACE : 0));
-        ReferenceType owner = parseInternalName(handle.getOwner());
+        ReferenceType owner = parseInternal(handle.getOwner());
         String name = handle.getName();
         if (handle.getTag() < H_INVOKEVIRTUAL) {
             return new Handle(Location.UNKNOWN, kind, owner, name, parseType(handle.getDesc()));
@@ -364,7 +372,7 @@ public class Decompiler {
     }
 
     private static EnumLiteral parseEnumLiteral(String descriptor, String value) {
-        return new EnumLiteral(Location.UNKNOWN, parseInternalName(descriptor, 1, descriptor.length() - 1), value);
+        return new EnumLiteral(Location.UNKNOWN, parseInternal(descriptor, 1, descriptor.length() - 1), value);
     }
 
     private class MyClassVisitor extends ClassVisitor {
@@ -580,7 +588,7 @@ public class Decompiler {
             if (exceptions != null) {
                 ReferenceType[] exceptionTypes = new ReferenceType[exceptions.length];
                 for (int i = 0; i < exceptionTypes.length; i++) {
-                    exceptionTypes[i] = parseInternalName(exceptions[i]);
+                    exceptionTypes[i] = parseInternal(exceptions[i]);
                 }
                 this.exceptionTypes = exceptionTypes;
             } else {
@@ -669,12 +677,12 @@ public class Decompiler {
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
-            statements.add(new TypeInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(type)));
+            statements.add(new TypeInsn(Location.UNKNOWN, getOpcodeName(opcode), parseArrayOrInternal(type)));
         }
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            statements.add(new FieldInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternalName(owner), name, parseType(descriptor)));
+            statements.add(new FieldInsn(Location.UNKNOWN, getOpcodeName(opcode), parseInternal(owner), name, parseType(descriptor)));
         }
 
         @Override
@@ -689,7 +697,7 @@ public class Decompiler {
             statements.add(new MethodInsn(
                     Location.UNKNOWN,
                     opcodeName,
-                    parseInternalName(owner),
+                    parseArrayOrInternal(owner),
                     name,
                     new MethodType(Location.UNKNOWN, parameterTypes, returnType)
             ));
@@ -805,7 +813,7 @@ public class Decompiler {
                     getLabel(start).name,
                     getLabel(end).name,
                     getLabel(handler).name,
-                    type != null ? parseInternalName(type) : null
+                    type != null ? parseInternal(type) : null
             ));
         }
 
@@ -875,7 +883,7 @@ public class Decompiler {
 
         public NormalAnnotationVisitor(String descriptor, boolean visible, Consumer<Annotation> callback) {
             super(Opcodes.ASM9);
-            this.type = parseInternalName(descriptor, 1, descriptor.length() - 1);
+            this.type = parseInternal(descriptor, 1, descriptor.length() - 1);
             this.visible = visible;
             this.callback = callback;
         }
