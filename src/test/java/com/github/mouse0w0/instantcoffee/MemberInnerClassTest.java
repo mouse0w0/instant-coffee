@@ -2,16 +2,18 @@ package com.github.mouse0w0.instantcoffee;
 
 import org.junit.jupiter.api.Test;
 
-public class InnerClassTest {
+public class MemberInnerClassTest {
     @Test
     public void test() {
-        Utils.validate(InnerClass.class);
+        Utils.validate(Outer.class);
     }
 
-    public static class InnerClass {
-        public class MemberInnerClass {}
+    public static class Outer {
+        public class InnerClass {
+        }
 
-        public final class MemberFinalInnerClass {}
+        public final class FinalInnerClass {
+        }
 
         public static class StaticInnerClass {}
 

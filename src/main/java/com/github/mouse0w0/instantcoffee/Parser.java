@@ -91,7 +91,7 @@ public class Parser {
 
         Annotation[] annotations = parseAnnotations();
         Modifier[] modifiers = parseModifiers();
-        if (peek("innerclass")) {
+        if (peek("innerclass") || peek("local") || peek("anonymous")) {
             if (annotations.length != 0) {
                 throw new CompileException("Inner class cannot be annotated", location());
             }
@@ -158,8 +158,20 @@ public class Parser {
 
     private InnerClassDeclaration parseInnerClassDeclaration(Modifier[] modifiers) {
         Location location = location();
+        InnerClassType type;
+        if (peekRead("anonymous")) {
+            read("innerclass");
+            type = InnerClassType.ANONYMOUS;
+            return new InnerClassDeclaration(location, type, modifiers, parseQualifiedIdentifier(), null);
+        }
+
+        if (peekRead("local")) {
+            type = InnerClassType.LOCAL;
+        } else {
+            type = InnerClassType.MEMBER_OR_STATIC;
+        }
         read("innerclass");
-        return new InnerClassDeclaration(location, modifiers, parseQualifiedIdentifier(), parseIdentifier());
+        return new InnerClassDeclaration(location, type, modifiers, parseQualifiedIdentifier(), parseIdentifier());
     }
 
     private FieldDeclaration parseFieldDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type type, String name) {

@@ -182,11 +182,23 @@ public class Compiler {
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
         for (InnerClassDeclaration innerClass : innerClasses) {
-            String outerName = getInternalName(innerClass.outerName);
+            String name = getInternalName(innerClass.name);
             String innerName = innerClass.innerName;
-            String name = outerName + "$" + innerName;
             int access = getInnerClassAccess(innerClass.modifiers);
-            cf.visitInnerClass(name, outerName, innerName, access);
+
+            // 根据类型调整访问标志
+            switch (innerClass.type) {
+                case ANONYMOUS:
+                    cf.visitInnerClass(name, null, null, access);
+                    break;
+                case LOCAL:
+                    cf.visitInnerClass(name, null, innerName, access);
+                    break;
+                case MEMBER_OR_STATIC:
+                    String outerName = name.substring(0, name.length() - innerName.length() - 1);
+                    cf.visitInnerClass(name, outerName, innerName, access);
+                    break;
+            }
         }
     }
 

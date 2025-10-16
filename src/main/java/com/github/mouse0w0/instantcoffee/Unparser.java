@@ -192,9 +192,20 @@ public class Unparser {
         pw.println();
         appendIndent(pw);
         unparseModifiers(icd.modifiers, pw);
-        pw.append("innerclass ");
-        unparseIdentifiers(icd.outerName, pw);
-        pw.append(" ").append(icd.innerName);
+
+        switch (icd.type) {
+            case ANONYMOUS:
+                pw.append("anonymous innerclass ");
+                unparseIdentifiers(icd.name, pw);
+                break;
+            case LOCAL:
+                pw.append("local ");
+            case MEMBER_OR_STATIC:
+                pw.append("innerclass ");
+                unparseIdentifiers(icd.name, pw);
+                pw.append(" ").append(icd.innerName);
+                break;
+        }
         pw.println();
     }
 
@@ -356,7 +367,9 @@ public class Unparser {
         push();
         appendIndent(pw).append(invokeDynamicInsn.name).println();
         appendIndent(pw).append(invokeDynamicInsn.methodType.toString()).println();
-        appendIndent(pw); unparseHandle(invokeDynamicInsn.bootstrapMethod, pw); pw.println();
+        appendIndent(pw);
+        unparseHandle(invokeDynamicInsn.bootstrapMethod, pw);
+        pw.println();
         unparseBootstrapMethodArguments(invokeDynamicInsn.bootstrapMethodArguments, pw);
         pop();
         appendIndent(pw).append("}").println();
@@ -463,7 +476,9 @@ public class Unparser {
         push();
         appendIndent(pw).append(constantDynamic.name).println();
         appendIndent(pw).append(constantDynamic.type.toString()).println();
-        appendIndent(pw); unparseHandle(constantDynamic.bootstrapMethod, pw); pw.println();
+        appendIndent(pw);
+        unparseHandle(constantDynamic.bootstrapMethod, pw);
+        pw.println();
         unparseBootstrapMethodArguments(constantDynamic.bootstrapMethodArguments, pw);
         pop();
         appendIndent(pw).append("}");
@@ -473,10 +488,12 @@ public class Unparser {
         appendIndent(pw).append("{").println();
         push();
         if (arguments.length > 0) {
-            appendIndent(pw); unparseValue(arguments[0], pw);
+            appendIndent(pw);
+            unparseValue(arguments[0], pw);
             for (int i = 1; i < arguments.length; i++) {
                 pw.append(",").println();
-                appendIndent(pw); unparseValue(arguments[i], pw);
+                appendIndent(pw);
+                unparseValue(arguments[i], pw);
             }
             pw.println();
         }

@@ -463,7 +463,18 @@ public class Decompiler {
 
         @Override
         public void visitInnerClass(String name, String outerName, String innerName, int access) {
-            innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, parseClassModifiers(access), parseIdentifiers(outerName), innerName));
+            InnerClassType type;
+
+            if (innerName == null) {
+                type = InnerClassType.ANONYMOUS;
+            } else if (outerName == null) {
+                type = InnerClassType.LOCAL;
+            } else {
+                type = InnerClassType.MEMBER_OR_STATIC;
+            }
+
+            innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, type, parseClassModifiers(access),
+                    parseIdentifiers(name), innerName));
         }
 
         @Override
