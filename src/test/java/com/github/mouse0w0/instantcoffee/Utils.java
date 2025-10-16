@@ -5,13 +5,10 @@ import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.*;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Utils {
     public static void validate(Class<?> clazz) {
@@ -42,39 +39,6 @@ public class Utils {
         }
 
         throw new AssertionError();
-    }
-
-    public static List<String> readAllLines(URL url) {
-        try {
-            return readAllLines(url.openStream());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    public static List<String> readAllLines(InputStream inputStream) {
-        return readAllLines(new InputStreamReader(inputStream));
-    }
-
-    public static List<String> readAllLines(Reader reader) {
-        List<String> lines = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(reader)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                lines.add(line);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return lines;
-    }
-
-    public static String readString(URL url) {
-        try {
-            return readString(url.openStream());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     public static String readString(InputStream inputStream) {
