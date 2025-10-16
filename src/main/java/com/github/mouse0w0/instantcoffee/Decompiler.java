@@ -687,7 +687,7 @@ public class Decompiler {
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-            String opcodeName = getOpcodeName(opcode | (isInterface && opcode != INVOKEINTERFACE ? FLAG_INTERFACE : 0));
+            String opcodeName = getOpcodeName(opcode | (isInterface ? FLAG_INTERFACE : 0));
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
             Type[] parameterTypes = new Type[parameters.length];
             for (int i = 0; i < parameters.length; i++) {

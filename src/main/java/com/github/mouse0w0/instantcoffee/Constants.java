@@ -10,7 +10,7 @@ public class Constants implements Opcodes {
 
     public static final int NOT_FOUND = -1;
 
-    public static final int FLAG_INTERFACE = 0x100;
+    public static final int FLAG_INTERFACE = 0x10000;
 
     //    public static final int LDC_W = 19;
     //    public static final int LDC2_W = 20;

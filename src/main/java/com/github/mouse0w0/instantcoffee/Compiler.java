@@ -444,7 +444,7 @@ public class Compiler {
 
     private void compileMethodInsn(MethodInsn insn, MethodVisitor mv) {
         int opcode = getOpcode(insn.opcode);
-        boolean isInterface = opcode == INVOKEINTERFACE || (opcode & FLAG_INTERFACE) != 0;
+        boolean isInterface = (opcode & FLAG_INTERFACE) != 0;
         if (isInterface) {
             opcode &= 0xFF;
         }
