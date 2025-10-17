@@ -7,7 +7,11 @@ plugins {
 group 'com.github.mouse0w0'
 version '1.0.0'
 
-sourceCompatibility = targetCompatibility = 1.8
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    withSourcesJar()
+}
 
 sourceSets {
     cli {
@@ -38,8 +42,9 @@ dependencies {
 
     cliImplementation 'net.sf.jopt-simple:jopt-simple:5.0.4'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.14.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.14.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.0'
 }
 
 tasks.register('cliJar', Jar) {
@@ -68,10 +73,6 @@ assemble.dependsOn cliJar
 
 test {
     useJUnitPlatform()
-}
-
-java {
-    withSourcesJar()
 }
 
 idea {
