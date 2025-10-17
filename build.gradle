@@ -4,8 +4,8 @@ plugins {
     id 'maven-publish'
 }
 
-group 'com.github.mouse0w0'
-version '1.0.0'
+group = 'com.github.mouse0w0'
+version = '1.0.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -31,7 +31,7 @@ configurations {
 }
 
 repositories {
-    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url = 'https://maven.aliyun.com/repository/public' }
     mavenCentral()
 }
 
