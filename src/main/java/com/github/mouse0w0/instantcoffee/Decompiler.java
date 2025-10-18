@@ -397,8 +397,8 @@ public class Decompiler {
 
         @Override
         public void visitNestHost(String nestHost) {
-            if (isFailOnUnsupportedFeature()) {
-                throw new UnsupportedOperationException("nest host");
+            if (nestHost != null) {
+                cd.nestHost = parseInternal(nestHost);
             }
         }
 
@@ -431,9 +431,7 @@ public class Decompiler {
 
         @Override
         public void visitNestMember(String nestMember) {
-            if (isFailOnUnsupportedFeature()) {
-                throw new UnsupportedOperationException("nest member");
-            }
+            cd.nestMembers.add(parseInternal(nestMember));
         }
 
         @Override

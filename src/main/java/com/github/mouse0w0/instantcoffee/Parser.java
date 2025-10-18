@@ -94,6 +94,16 @@ public class Parser {
             return;
         }
 
+        if (peekRead("nesthost")) {
+            cd.nestHost = parseReferenceType();
+            return;
+        }
+
+        if (peekRead("nestmember")) {
+            cd.nestMembers.add(parseReferenceType());
+            return;
+        }
+
         List<Annotation> annotations = parseAnnotations();
         List<Modifier> modifiers = parseModifiers();
         if (peek("innerclass") || peek("local") || peek("anonymous")) {

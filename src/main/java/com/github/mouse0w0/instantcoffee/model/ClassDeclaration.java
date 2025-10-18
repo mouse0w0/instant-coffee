@@ -13,6 +13,8 @@ public class ClassDeclaration extends Located {
     public ReferenceType superclass;
     public List<ReferenceType> interfaces;
     public StringLiteral source;
+    public ReferenceType nestHost;
+    public List<ReferenceType> nestMembers;
     public List<InnerClassDeclaration> innerClasses;
     public List<FieldDeclaration> fields;
     public List<MethodDeclaration> methods;
@@ -22,6 +24,7 @@ public class ClassDeclaration extends Located {
         this.annotations = new ArrayList<>();
         this.modifiers = new ArrayList<>();
         this.interfaces = new ArrayList<>();
+        this.nestMembers = new ArrayList<>();
         this.innerClasses = new ArrayList<>();
         this.fields = new ArrayList<>();
         this.methods = new ArrayList<>();
@@ -34,6 +37,7 @@ public class ClassDeclaration extends Located {
         this.identifiers = identifiers;
         this.superclass = superclass;
         this.interfaces = interfaces;
+        this.nestMembers = new ArrayList<>();
         this.innerClasses = new ArrayList<>();
         this.fields = new ArrayList<>();
         this.methods = new ArrayList<>();

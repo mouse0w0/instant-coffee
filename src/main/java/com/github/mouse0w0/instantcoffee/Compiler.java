@@ -27,6 +27,7 @@ public class Compiler {
         String[] interfaces = getInterfaces(cd.interfaces);
         cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
         compileSource(cd.source, cf);
+        compileNestHost(cd.nestHost, cf);
         compileAnnotations(cd.annotations, cf);
         compileInnerClasses(cd.innerClasses, cf);
         compileFields(cd.fields, cf);
@@ -186,6 +187,11 @@ public class Compiler {
     private void compileSource(StringLiteral source, ClassFile cf) {
         if (source == null) return;
         cf.visitSource(getConstantValue2(source), null);
+    }
+
+    private void compileNestHost(ReferenceType nestHost, ClassFile cf) {
+        if (nestHost == null) return;
+        cf.visitNestHost(getInternalName2(nestHost));
     }
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
