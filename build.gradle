@@ -47,6 +47,10 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.0'
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
 tasks.register('cliJar', Jar) {
     dependsOn tasks.classes, tasks.cliClasses
     group = 'build'
@@ -75,14 +79,23 @@ test {
     useJUnitPlatform()
 }
 
+tasks.withType(JavaCompile).matching { it.name == 'compileTestJava' }.configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    options.release = 25
+}
+
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 idea {
     module {
         downloadSources = true
     }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
 }
 
 publishing {
@@ -96,4 +109,3 @@ publishing {
         }
     }
 }
-
