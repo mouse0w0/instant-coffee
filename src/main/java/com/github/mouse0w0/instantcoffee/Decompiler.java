@@ -213,8 +213,25 @@ public class Decompiler {
         }
     }
 
-    private static Type parseType(org.objectweb.asm.Type type) {
-        return parseType(type.getDescriptor());
+    private static List<Type> parseParameterTypes(String methodDescriptor) {
+        List<Type> parameterTypes = new ArrayList<>();
+        int currentOffset = 1;
+        while (methodDescriptor.charAt(currentOffset) != ')') {
+            int currentParameterTypeOffset = currentOffset;
+            while (methodDescriptor.charAt(currentOffset) == '[') {
+                currentOffset++;
+            }
+            if (methodDescriptor.charAt(currentOffset++) == 'L') {
+                int semiOffset = methodDescriptor.indexOf(';', currentOffset);
+                if (semiOffset != -1) currentOffset = semiOffset + 1;
+            }
+            parameterTypes.add(parseType(methodDescriptor, currentParameterTypeOffset, currentOffset));
+        }
+        return parameterTypes;
+    }
+
+    private static Type parseReturnType(String methodDescriptor) {
+        return parseType(methodDescriptor, methodDescriptor.indexOf(')') + 1, methodDescriptor.length());
     }
 
     private static PrimitiveType parseNewArrayInsnType(int operand) {
@@ -311,12 +328,8 @@ public class Decompiler {
     }
 
     private static MethodType parseMethodType(String methodDescriptor) {
-        org.objectweb.asm.Type[] asmParameterTypes = org.objectweb.asm.Type.getArgumentTypes(methodDescriptor);
-        List<Type> parameterTypes = new ArrayList<>(asmParameterTypes.length);
-        for (org.objectweb.asm.Type asmParameterType : asmParameterTypes) {
-            parameterTypes.add(parseType(asmParameterType));
-        }
-        Type returnType = parseType(org.objectweb.asm.Type.getReturnType(methodDescriptor));
+        List<Type> parameterTypes = parseParameterTypes(methodDescriptor);
+        Type returnType = parseReturnType(methodDescriptor);
         return new MethodType(Location.UNKNOWN, parameterTypes, returnType);
     }
 
@@ -551,12 +564,8 @@ public class Decompiler {
             super(Opcodes.ASM9);
             this.modifiers = parseMethodModifiers(access);
             this.name = name;
-            org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
-            this.parameterTypes = new ArrayList<>(parameters.length);
-            for (org.objectweb.asm.Type parameter : parameters) {
-                parameterTypes.add(parseType(parameter));
-            }
-            this.returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
+            this.parameterTypes = parseParameterTypes(descriptor);
+            this.returnType = parseReturnType(descriptor);
             if (exceptions != null) {
                 this.exceptionTypes = new ArrayList<>(exceptions.length);
                 for (String exception : exceptions) {
@@ -659,12 +668,8 @@ public class Decompiler {
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
             String opcodeName = getOpcodeName(opcode | (isInterface ? FLAG_INTERFACE : 0));
-            org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
-            List<Type> parameterTypes = new ArrayList<>(parameters.length);
-            for (org.objectweb.asm.Type parameter : parameters) {
-                parameterTypes.add(parseType(parameter));
-            }
-            Type returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
+            List<Type> parameterTypes = parseParameterTypes(descriptor);
+            Type returnType = parseReturnType(descriptor);
             statements.add(new MethodInsn(
                     Location.UNKNOWN,
                     opcodeName,
