@@ -5,8 +5,6 @@ import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 import com.github.mouse0w0.instantcoffee.model.Located;
 
 public class SwitchCase extends Located {
-    public static final SwitchCase[] EMPTY_ARRAY = {};
-
     public IntegerLiteral key;
     public String label;
 

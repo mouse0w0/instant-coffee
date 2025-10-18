@@ -6,15 +6,17 @@ import com.github.mouse0w0.instantcoffee.model.Handle;
 import com.github.mouse0w0.instantcoffee.model.MethodType;
 import com.github.mouse0w0.instantcoffee.model.Value;
 
+import java.util.List;
+
 public class InvokeDynamicInsn extends BaseInsn {
     private static final String OPCODE = Constants.getOpcodeName(Constants.INVOKEDYNAMIC);
 
     public String name;
     public MethodType methodType;
     public Handle bootstrapMethod;
-    public Value[] bootstrapMethodArguments;
+    public List<Value> bootstrapMethodArguments;
 
-    public InvokeDynamicInsn(Location location, String name, MethodType methodType, Handle bootstrapMethod, Value[] bootstrapMethodArguments) {
+    public InvokeDynamicInsn(Location location, String name, MethodType methodType, Handle bootstrapMethod, List<Value> bootstrapMethodArguments) {
         super(location, OPCODE);
         this.name = name;
         this.methodType = methodType;

@@ -94,17 +94,17 @@ public class Parser {
             return;
         }
 
-        Annotation[] annotations = parseAnnotations();
-        Modifier[] modifiers = parseModifiers();
+        List<Annotation> annotations = parseAnnotations();
+        List<Modifier> modifiers = parseModifiers();
         if (peek("innerclass") || peek("local") || peek("anonymous")) {
-            if (annotations.length != 0) {
+            if (!annotations.isEmpty()) {
                 throw new CompileException("Inner class cannot be annotated", location());
             }
             cd.innerClasses.add(parseInnerClassDeclaration(modifiers));
             return;
         }
 
-        if (peek("{") && modifiers.length == 1 && "static".equals(modifiers[0].keyword)) {
+        if (peek("{") && modifiers.size() == 1 && "static".equals(modifiers.get(0).keyword)) {
             cd.methods.add(parseInitializerDeclaration(location(), annotations, modifiers));
             return;
         }
@@ -155,7 +155,7 @@ public class Parser {
         cd.fields.add(parseFieldDeclaration(location, annotations, modifiers, returnType, name));
     }
 
-    private InnerClassDeclaration parseInnerClassDeclaration(Modifier[] modifiers) {
+    private InnerClassDeclaration parseInnerClassDeclaration(List<Modifier> modifiers) {
         Location location = location();
         InnerClassType type;
         if (peekRead("anonymous")) {
@@ -173,25 +173,25 @@ public class Parser {
         return new InnerClassDeclaration(location, type, modifiers, parseQualifiedIdentifier(), parseIdentifier());
     }
 
-    private FieldDeclaration parseFieldDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type type, String name) {
+    private FieldDeclaration parseFieldDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type type, String name) {
         return new FieldDeclaration(location, annotations, modifiers, type, name, peekRead("=") ? parseValue() : null);
     }
 
-    private MethodDeclaration parseInitializerDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers) {
+    private MethodDeclaration parseInitializerDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers) {
         return new MethodDeclaration(
                 location,
                 annotations,
                 modifiers,
                 new VoidType(location),
                 "<clinit>",
-                Type.EMPTY_ARRAY,
-                ReferenceType.EMPTY_ARRAY,
+                new ArrayList<>(),
+                new ArrayList<>(),
                 null,
                 parseMethodBody(hasModifier(modifiers, "abstract", "native"))
         );
     }
 
-    private MethodDeclaration parseMethodDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, Type returnType, String name, boolean allowDefaultClause) {
+    private MethodDeclaration parseMethodDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type returnType, String name, boolean allowDefaultClause) {
         return new MethodDeclaration(
                 location,
                 annotations,
@@ -205,27 +205,27 @@ public class Parser {
         );
     }
 
-    private Type[] parseMethodParameterTypes() {
+    private List<Type> parseMethodParameterTypes() {
         read("(");
-        if (peekRead(")")) {
-            return Type.EMPTY_ARRAY;
-        }
         List<Type> parameterTypes = new ArrayList<>();
+        if (peekRead(")")) {
+            return parameterTypes;
+        }
         do {
             parameterTypes.add(parseType());
         } while (peekRead(","));
         read(")");
-        return parameterTypes.toArray(Type.EMPTY_ARRAY);
+        return parameterTypes;
     }
 
-    private ReferenceType[] parseMethodExceptionTypes() {
+    private List<ReferenceType> parseMethodExceptionTypes() {
         List<ReferenceType> exceptionTypes = new ArrayList<>();
         if (peekRead("throws")) {
             do {
                 exceptionTypes.add(parseReferenceType());
             } while (peekRead(","));
         }
-        return exceptionTypes.toArray(ReferenceType.EMPTY_ARRAY);
+        return exceptionTypes;
     }
 
     private Block parseMethodBody(boolean isAbstractOrNative) {
@@ -447,7 +447,7 @@ public class Parser {
                         throw new CompileException("integer literal or \"default\" expected", location());
                     }
                 }
-                return new SwitchInsn(location, cases.toArray(SwitchCase.EMPTY_ARRAY), dflt);
+                return new SwitchInsn(location, cases, dflt);
             }
             case Constants.ILOAD:
             case Constants.LLOAD:
@@ -481,7 +481,7 @@ public class Parser {
                 String name = parseIdentifier();
                 MethodType methodType = parseMethodType();
                 Handle bootstrapMethod = parseHandle();
-                Value[] bootstrapMethodArguments = parseBootstrapMethodArguments();
+                List<Value> bootstrapMethodArguments = parseBootstrapMethodArguments();
                 read("}");
                 return new InvokeDynamicInsn(location, name, methodType, bootstrapMethod, bootstrapMethodArguments);
             case Constants.NEW:
@@ -508,44 +508,47 @@ public class Parser {
         return new SwitchCase(location, key, label);
     }
 
-    private Annotation[] parseAnnotations() {
+    private List<Annotation> parseAnnotations() {
         List<Annotation> l = new ArrayList<>();
         while (peek("@") && !peek2("interface")) {
             l.add(parseAnnotation());
         }
-        return l.toArray(Annotation.EMPTY_ARRAY);
+        return l;
     }
 
     private Annotation parseAnnotation() {
         Location location = location();
         read("@");
         ReferenceType type = new ReferenceType(location(), parseQualifiedIdentifier());
-        AnnotationValuePair[] values = parseAnnotationValues();
+        List<AnnotationValuePair> values = parseAnnotationValues();
         boolean visible = !peekRead("invisible");
         return new Annotation(location, type, values, visible);
     }
 
-    private AnnotationValuePair[] parseAnnotationValues() {
+    private List<AnnotationValuePair> parseAnnotationValues() {
+        List<AnnotationValuePair> l = new ArrayList<>();
+
         if (!peekRead("(")) {
-            return AnnotationValuePair.EMPTY_ARRAY;
+            return l;
         }
+
         if (peekRead(")")) {
-            return AnnotationValuePair.EMPTY_ARRAY;
+            return l;
         }
 
         Location location = location();
         if (!peek(TokenType.IDENTIFIER) || !peek2("=")) {
             AnnotationValue value = parseAnnotationValue();
             read(")");
-            return new AnnotationValuePair[]{new AnnotationValuePair(location, "value", value)};
+            l.add(new AnnotationValuePair(location, "value", value));
+            return l;
         }
 
-        List<AnnotationValuePair> l = new ArrayList<>();
         do {
             l.add(parseAnnotationValuePair());
         } while (peekRead(","));
         read(")");
-        return l.toArray(AnnotationValuePair.EMPTY_ARRAY);
+        return l;
     }
 
     private AnnotationValuePair parseAnnotationValuePair() {
@@ -570,26 +573,26 @@ public class Parser {
     private AnnotationValueArrayInitializer parseAnnotationValueArrayInitializer() {
         Location location = location();
         read("{");
-        if (peekRead("}")) {
-            return new AnnotationValueArrayInitializer(location, AnnotationValue.EMPTY_ARRAY);
-        }
         List<AnnotationValue> values = new ArrayList<>();
+        if (peekRead("}")) {
+            return new AnnotationValueArrayInitializer(location, values);
+        }
         while (!peekRead("}")) {
             values.add(parseAnnotationValue());
             if (peekRead("}")) break;
             read(",");
         }
-        return new AnnotationValueArrayInitializer(location, values.toArray(AnnotationValue.EMPTY_ARRAY));
+        return new AnnotationValueArrayInitializer(location, values);
     }
 
-    private Modifier[] parseModifiers() {
-        List<Modifier> result = new ArrayList<>();
+    private List<Modifier> parseModifiers() {
+        List<Modifier> modifiers = new ArrayList<>();
         for (; ; ) {
-            Modifier m = parseModifier();
-            if (m == null) break;
-            result.add(m);
+            Modifier modifier = parseModifier();
+            if (modifier == null) break;
+            modifiers.add(modifier);
         }
-        return result.toArray(Modifier.EMPTY_ARRAY);
+        return modifiers;
     }
 
     private Modifier parseModifier() {
@@ -722,15 +725,14 @@ public class Parser {
         return null;
     }
 
-    private ReferenceType[] parseInterfaces() {
+    private List<ReferenceType> parseInterfaces() {
+        List<ReferenceType> result = new ArrayList<>();
         if (peekRead("implements")) {
-            List<ReferenceType> result = new ArrayList<>();
             do {
                 result.add(parseReferenceType());
             } while (peekRead(","));
-            return result.toArray(ReferenceType.EMPTY_ARRAY);
         }
-        return ReferenceType.EMPTY_ARRAY;
+        return result;
     }
 
     private Value parseValue() {
@@ -814,22 +816,22 @@ public class Parser {
         String identifier = parseIdentifier();
         Type type = parseType();
         Handle bootstrapMethod = parseHandle();
-        Value[] bootstrapMethodArguments = parseBootstrapMethodArguments();
+        List<Value> bootstrapMethodArguments = parseBootstrapMethodArguments();
         read("}");
         return new ConstantDynamic(location, identifier, type, bootstrapMethod, bootstrapMethodArguments);
     }
 
-    private Value[] parseBootstrapMethodArguments() {
+    private List<Value> parseBootstrapMethodArguments() {
         List<Value> arguments = new ArrayList<>();
         read("{");
         do {
             arguments.add(parseValue());
         } while (peekRead(","));
         read("}");
-        return arguments.toArray(Value.EMPTY_ARRAY);
+        return arguments;
     }
 
-    private static boolean hasModifier(Modifier[] modifiers, String keyword) {
+    private static boolean hasModifier(List<Modifier> modifiers, String keyword) {
         for (Modifier modifier : modifiers) {
             if (modifier.keyword.equals(keyword)) {
                 return true;
@@ -838,7 +840,7 @@ public class Parser {
         return false;
     }
 
-    private static boolean hasModifier(Modifier[] modifiers, String... keywords) {
+    private static boolean hasModifier(List<Modifier> modifiers, String... keywords) {
         for (Modifier modifier : modifiers) {
             for (String keyword : keywords) {
                 if (modifier.keyword.equals(keyword)) {

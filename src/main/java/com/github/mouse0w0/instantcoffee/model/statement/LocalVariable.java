@@ -5,8 +5,6 @@ import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 import com.github.mouse0w0.instantcoffee.model.Type;
 
 public class LocalVariable extends Statement {
-    public static final LocalVariable[] EMPTY_ARRAY = {};
-
     public String name;
     public Type type;
     public String start;

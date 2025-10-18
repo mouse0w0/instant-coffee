@@ -41,26 +41,14 @@ public class Decompiler {
     public ClassDeclaration decompileClass(ClassReader cr) {
         MyClassVisitor cv = new MyClassVisitor();
         cr.accept(cv, ClassReader.SKIP_FRAMES);
-        ClassDeclaration cd = new ClassDeclaration(
-                Location.UNKNOWN,
-                cv.annotations.toArray(Annotation.EMPTY_ARRAY),
-                cv.modifiers,
-                cv.identifiers,
-                cv.superclass,
-                cv.interfaces,
-                cv.source,
-                cv.innerClasses,
-                cv.fields,
-                cv.methods);
-        cd.version = cv.version;
-        return cd;
+        return cv.cd;
     }
 
     private static IntegerLiteral parseVersion(int version) {
         return new IntegerLiteral(Location.UNKNOWN, Integer.toString((version - 44) & 0xFFFF));
     }
 
-    private static Modifier[] parseClassModifiers(int access) {
+    private static List<Modifier> parseClassModifiers(int access) {
         List<Modifier> l = new ArrayList<>();
         if ((access & ACC_PUBLIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "public"));
@@ -90,11 +78,10 @@ public class Decompiler {
             if ((access & ACC_SUPER) != 0)
                 l.add(new Modifier(Location.UNKNOWN, "class"));
         }
-
-        return l.toArray(Modifier.EMPTY_ARRAY);
+        return l;
     }
 
-    private static Modifier[] parseFieldModifiers(int access) {
+    private static List<Modifier> parseFieldModifiers(int access) {
         List<Modifier> l = new ArrayList<>();
         if ((access & ACC_PUBLIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "public"));
@@ -117,10 +104,10 @@ public class Decompiler {
             l.add(new Modifier(Location.UNKNOWN, "enum"));
         if ((access & ACC_MANDATED) != 0)
             l.add(new Modifier(Location.UNKNOWN, "mandated"));
-        return l.toArray(Modifier.EMPTY_ARRAY);
+        return l;
     }
 
-    private static Modifier[] parseMethodModifiers(int access) {
+    private static List<Modifier> parseMethodModifiers(int access) {
         List<Modifier> l = new ArrayList<>();
         if ((access & ACC_PUBLIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "public"));
@@ -149,7 +136,7 @@ public class Decompiler {
             l.add(new Modifier(Location.UNKNOWN, "strictfp"));
         if ((access & ACC_MANDATED) != 0)
             l.add(new Modifier(Location.UNKNOWN, "mandated"));
-        return l.toArray(Modifier.EMPTY_ARRAY);
+        return l;
     }
 
     private static String[] parseIdentifiers(String internalName) {
@@ -321,9 +308,9 @@ public class Decompiler {
 
     private static MethodType parseMethodType(String methodDescriptor) {
         org.objectweb.asm.Type[] asmParameterTypes = org.objectweb.asm.Type.getArgumentTypes(methodDescriptor);
-        Type[] parameterTypes = new Type[asmParameterTypes.length];
-        for (int i = 0; i < asmParameterTypes.length; i++) {
-            parameterTypes[i] = parseType(asmParameterTypes[i]);
+        List<Type> parameterTypes = new ArrayList<>(asmParameterTypes.length);
+        for (org.objectweb.asm.Type asmParameterType : asmParameterTypes) {
+            parameterTypes.add(parseType(asmParameterType));
         }
         Type returnType = parseType(org.objectweb.asm.Type.getReturnType(methodDescriptor));
         return new MethodType(Location.UNKNOWN, parameterTypes, returnType);
@@ -345,9 +332,9 @@ public class Decompiler {
         Type type = parseType(constantDynamic.getDescriptor());
         Handle bootstrapMethod = parseHandle(constantDynamic.getBootstrapMethod());
         int bootstrapMethodArgumentCount = constantDynamic.getBootstrapMethodArgumentCount();
-        Value[] bootstrapMethodArguments = new Value[bootstrapMethodArgumentCount];
+        List<Value> bootstrapMethodArguments = new ArrayList<>(bootstrapMethodArgumentCount);
         for (int i = 0; i < bootstrapMethodArgumentCount; i++) {
-            bootstrapMethodArguments[i] = parseValue(constantDynamic.getBootstrapMethodArgument(i));
+            bootstrapMethodArguments.add(parseValue(constantDynamic.getBootstrapMethodArgument(i)));
         }
         return new ConstantDynamic(Location.UNKNOWN, name, type, bootstrapMethod, bootstrapMethodArguments);
     }
@@ -376,19 +363,7 @@ public class Decompiler {
     }
 
     private class MyClassVisitor extends ClassVisitor {
-        private IntegerLiteral version;
-        private Modifier[] modifiers;
-        private String[] identifiers;
-
-        private ReferenceType superclass;
-        private ReferenceType[] interfaces;
-
-        private StringLiteral source;
-
-        private final List<Annotation> annotations = new ArrayList<>();
-        private final List<InnerClassDeclaration> innerClasses = new ArrayList<>();
-        private final List<FieldDeclaration> fields = new ArrayList<>();
-        private final List<MethodDeclaration> methods = new ArrayList<>();
+        private final ClassDeclaration cd = new ClassDeclaration(Location.UNKNOWN);
 
         public MyClassVisitor() {
             super(Opcodes.ASM9);
@@ -396,22 +371,19 @@ public class Decompiler {
 
         @Override
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-            this.version = parseVersion(version);
-            this.modifiers = parseClassModifiers(access);
-            this.identifiers = parseIdentifiers(name);
-            this.superclass = "java/lang/Object".equals(superName) ? null : new ReferenceType(Location.UNKNOWN, parseIdentifiers(superName));
-
-            List<ReferenceType> l = new ArrayList<>();
-            for (String s : interfaces) {
-                l.add(new ReferenceType(Location.UNKNOWN, parseIdentifiers(s)));
+            cd.version = parseVersion(version);
+            cd.modifiers = parseClassModifiers(access);
+            cd.identifiers = parseIdentifiers(name);
+            cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
+            for (String inte : interfaces) {
+                cd.interfaces.add(parseInternal(inte));
             }
-            this.interfaces = l.toArray(ReferenceType.EMPTY_ARRAY);
         }
 
         @Override
         public void visitSource(String source, String debug) {
             if (source != null) {
-                this.source = new StringLiteral(Location.UNKNOWN, "\"" + escape(source) + "\"");
+                cd.source = new StringLiteral(Location.UNKNOWN, "\"" + escape(source) + "\"");
             }
         }
 
@@ -439,7 +411,7 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return new NormalAnnotationVisitor(descriptor, visible, annotations::add);
+            return new NormalAnnotationVisitor(descriptor, visible, cd.annotations::add);
         }
 
         @Override
@@ -483,7 +455,7 @@ public class Decompiler {
                 type = InnerClassType.MEMBER_OR_STATIC;
             }
 
-            innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, type, parseClassModifiers(access),
+            cd.innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, type, parseClassModifiers(access),
                     parseIdentifiers(name), innerName));
         }
 
@@ -497,12 +469,12 @@ public class Decompiler {
 
         @Override
         public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-            return new MyFieldVisitor(access, name, descriptor, signature, value, fields::add);
+            return new MyFieldVisitor(access, name, descriptor, signature, value, cd.fields::add);
         }
 
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-            return new MyMethodVisitor(access, name, descriptor, signature, exceptions, methods::add);
+            return new MyMethodVisitor(access, name, descriptor, signature, exceptions, cd.methods::add);
         }
 
         @Override
@@ -512,7 +484,7 @@ public class Decompiler {
     }
 
     private class MyFieldVisitor extends FieldVisitor {
-        private final Modifier[] modifiers;
+        private final List<Modifier> modifiers;
         private final Type type;
         private final String name;
         private final Value value;
@@ -552,17 +524,17 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new FieldDeclaration(Location.UNKNOWN, annotations.toArray(Annotation.EMPTY_ARRAY), modifiers, type, name, value));
+            callback.accept(new FieldDeclaration(Location.UNKNOWN, annotations, modifiers, type, name, value));
         }
     }
 
     private class MyMethodVisitor extends MethodVisitor {
-        private final Modifier[] modifiers;
+        private final List<Modifier> modifiers;
         private final String name;
 
-        private final Type[] parameterTypes;
+        private final List<Type> parameterTypes;
         private final Type returnType;
-        private final ReferenceType[] exceptionTypes;
+        private final List<ReferenceType> exceptionTypes;
 
         private final Consumer<MethodDeclaration> callback;
 
@@ -577,24 +549,19 @@ public class Decompiler {
             super(Opcodes.ASM9);
             this.modifiers = parseMethodModifiers(access);
             this.name = name;
-
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
-            Type[] parameterTypes = new Type[parameters.length];
-            for (int i = 0; i < parameters.length; i++) {
-                parameterTypes[i] = parseType(parameters[i]);
+            this.parameterTypes = new ArrayList<>(parameters.length);
+            for (org.objectweb.asm.Type parameter : parameters) {
+                parameterTypes.add(parseType(parameter));
             }
-            this.parameterTypes = parameterTypes;
-
             this.returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
-
             if (exceptions != null) {
-                ReferenceType[] exceptionTypes = new ReferenceType[exceptions.length];
-                for (int i = 0; i < exceptionTypes.length; i++) {
-                    exceptionTypes[i] = parseInternal(exceptions[i]);
+                this.exceptionTypes = new ArrayList<>(exceptions.length);
+                for (String exception : exceptions) {
+                    this.exceptionTypes.add(parseInternal(exception));
                 }
-                this.exceptionTypes = exceptionTypes;
             } else {
-                this.exceptionTypes = ReferenceType.EMPTY_ARRAY;
+                this.exceptionTypes = new ArrayList<>(0);
             }
             this.callback = callback;
         }
@@ -691,9 +658,9 @@ public class Decompiler {
         public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
             String opcodeName = getOpcodeName(opcode | (isInterface ? FLAG_INTERFACE : 0));
             org.objectweb.asm.Type[] parameters = org.objectweb.asm.Type.getArgumentTypes(descriptor);
-            Type[] parameterTypes = new Type[parameters.length];
-            for (int i = 0; i < parameters.length; i++) {
-                parameterTypes[i] = parseType(parameters[i]);
+            List<Type> parameterTypes = new ArrayList<>(parameters.length);
+            for (org.objectweb.asm.Type parameter : parameters) {
+                parameterTypes.add(parseType(parameter));
             }
             Type returnType = parseType(org.objectweb.asm.Type.getReturnType(descriptor));
             statements.add(new MethodInsn(
@@ -709,9 +676,9 @@ public class Decompiler {
         public void visitInvokeDynamicInsn(String name, String descriptor, org.objectweb.asm.Handle bootstrapMethod, Object... bootstrapMethodArguments) {
             MethodType methodType = parseMethodType(descriptor);
             Handle newBootstrapMethod = parseHandle(bootstrapMethod);
-            Value[] newBootstrapMethodArguments = new Value[bootstrapMethodArguments.length];
-            for (int i = 0; i < bootstrapMethodArguments.length; i++) {
-                newBootstrapMethodArguments[i] = parseValue(bootstrapMethodArguments[i]);
+            List<Value> newBootstrapMethodArguments = new ArrayList<>(bootstrapMethodArguments.length);
+            for (Object bootstrapMethodArgument : bootstrapMethodArguments) {
+                newBootstrapMethodArguments.add(parseValue(bootstrapMethodArgument));
             }
             statements.add(new InvokeDynamicInsn(
                     Location.UNKNOWN,
@@ -768,9 +735,9 @@ public class Decompiler {
 
         @Override
         public void visitTableSwitchInsn(int min, int max, org.objectweb.asm.Label dflt, org.objectweb.asm.Label... labels) {
-            SwitchCase[] insnCases = new SwitchCase[labels.length];
+            List<SwitchCase> insnCases = new ArrayList<>(labels.length);
             for (int i = 0; i < labels.length; i++) {
-                insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(i + min), getLabel(labels[i]).name);
+                insnCases.add(new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(i + min), getLabel(labels[i]).name));
             }
             String insnDflt = getLabel(dflt).name;
             statements.add(new SwitchInsn(
@@ -781,15 +748,12 @@ public class Decompiler {
 
         @Override
         public void visitLookupSwitchInsn(org.objectweb.asm.Label dflt, int[] keys, org.objectweb.asm.Label[] labels) {
-            SwitchCase[] insnCases = new SwitchCase[labels.length];
+            List<SwitchCase> insnCases = new ArrayList<>(labels.length);
             for (int i = 0; i < labels.length; i++) {
-                insnCases[i] = new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(keys[i]), getLabel(labels[i]).name);
+                insnCases.add(new SwitchCase(Location.UNKNOWN, parseIntegerLiteral(keys[i]), getLabel(labels[i]).name));
             }
             String insnDflt = getLabel(dflt).name;
-            statements.add(new SwitchInsn(
-                    Location.UNKNOWN,
-                    insnCases,
-                    insnDflt));
+            statements.add(new SwitchInsn(Location.UNKNOWN, insnCases, insnDflt));
         }
 
         @Override
@@ -863,7 +827,7 @@ public class Decompiler {
         public void visitEnd() {
             callback.accept(new MethodDeclaration(
                     Location.UNKNOWN,
-                    annotations.toArray(Annotation.EMPTY_ARRAY),
+                    annotations,
                     modifiers,
                     returnType,
                     name,
@@ -916,7 +880,7 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new Annotation(Location.UNKNOWN, type, values.toArray(AnnotationValuePair.EMPTY_ARRAY), visible));
+            callback.accept(new Annotation(Location.UNKNOWN, type, values, visible));
         }
     }
 
@@ -988,7 +952,7 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new AnnotationValueArrayInitializer(Location.UNKNOWN, values.toArray(AnnotationValue.EMPTY_ARRAY)));
+            callback.accept(new AnnotationValueArrayInitializer(Location.UNKNOWN, values));
         }
     }
 }

@@ -115,7 +115,7 @@ public class Compiler {
         return getMethodDescriptor(type.parameterTypes, type.returnType);
     }
 
-    private String getMethodDescriptor(Type[] parameterTypes, Type returnType) {
+    private String getMethodDescriptor(List<Type> parameterTypes, Type returnType) {
         StringBuilder stringBuilder = new StringBuilder("(");
         for (Type parameterType : parameterTypes) {
             stringBuilder.append(getDescriptor(parameterType));
@@ -137,7 +137,7 @@ public class Compiler {
         return getConstantValue2(literal).intValue() + 44;
     }
 
-    private int getClassAccess(Modifier[] modifiers) {
+    private int getClassAccess(List<Modifier> modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
             String keyword = modifier.keyword;
@@ -174,8 +174,8 @@ public class Compiler {
         return superclass != null ? getInternalName2(superclass.identifiers) : "java/lang/Object";
     }
 
-    private String[] getInterfaces(ReferenceType[] interfaces) {
-        if (interfaces.length == 0) return null;
+    private String[] getInterfaces(List<ReferenceType> interfaces) {
+        if (interfaces.isEmpty()) return null;
         List<String> l = new ArrayList<>();
         for (ReferenceType inte : interfaces) {
             l.add(getInternalName2(inte.identifiers));
@@ -210,7 +210,7 @@ public class Compiler {
         }
     }
 
-    private int getInnerClassAccess(Modifier[] modifiers) {
+    private int getInnerClassAccess(List<Modifier> modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
             String keyword = modifier.keyword;
@@ -258,7 +258,7 @@ public class Compiler {
         fv.visitEnd();
     }
 
-    private int getFieldAccess(Modifier[] modifiers) {
+    private int getFieldAccess(List<Modifier> modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
             String keyword = modifier.keyword;
@@ -295,7 +295,7 @@ public class Compiler {
         }
     }
 
-    private String[] getMethodExceptions(ReferenceType[] types) {
+    private String[] getMethodExceptions(List<ReferenceType> types) {
         List<String> l = new ArrayList<>();
         for (ReferenceType type : types) {
             l.add(getInternalName2(type));
@@ -323,7 +323,7 @@ public class Compiler {
         mv.visitEnd();
     }
 
-    private int getMethodAccess(Modifier[] modifiers) {
+    private int getMethodAccess(List<Modifier> modifiers) {
         int access = 0;
         for (Modifier modifier : modifiers) {
             String keyword = modifier.keyword;
@@ -620,19 +620,19 @@ public class Compiler {
                 tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
-    private void compileAnnotations(Annotation[] annotations, ClassFile cf) {
+    private void compileAnnotations(List<Annotation> annotations, ClassFile cf) {
         for (Annotation annotation : annotations) {
             compileAnnotation(annotation, cf.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
-    private void compileAnnotations(Annotation[] annotations, FieldVisitor fv) {
+    private void compileAnnotations(List<Annotation> annotations, FieldVisitor fv) {
         for (Annotation annotation : annotations) {
             compileAnnotation(annotation, fv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
-    private void compileAnnotations(Annotation[] annotations, MethodVisitor mv) {
+    private void compileAnnotations(List<Annotation> annotations, MethodVisitor mv) {
         for (Annotation annotation : annotations) {
             compileAnnotation(annotation, mv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
@@ -853,10 +853,10 @@ public class Compiler {
         return new org.objectweb.asm.ConstantDynamic(name, descriptor, bootstrapMethod, bootstrapMethodArguments);
     }
 
-    private Object[] getConstantValues(Value[] values) {
-        Object[] a = new Object[values.length];
-        for (int i = 0; i < values.length; i++) {
-            a[i] = getConstantValue(values[i]);
+    private Object[] getConstantValues(List<Value> values) {
+        Object[] a = new Object[values.size()];
+        for (int i = 0; i < a.length; i++) {
+            a[i] = getConstantValue(values.get(i));
         }
         return a;
     }

@@ -5,6 +5,7 @@ import com.github.mouse0w0.instantcoffee.model.statement.*;
 
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.Iterator;
 import java.util.List;
 
 public class Unparser {
@@ -102,7 +103,7 @@ public class Unparser {
         pop();
     }
 
-    private void unparseModifiers(Modifier[] modifiers, PrintWriter pw) {
+    private void unparseModifiers(List<Modifier> modifiers, PrintWriter pw) {
         for (Modifier modifier : modifiers) {
             pw.append(modifier.toString()).append(" ");
         }
@@ -122,8 +123,8 @@ public class Unparser {
         pw.append(" extends ").append(superclass.toString());
     }
 
-    private void unparseInterfaces(ReferenceType[] interfaces, PrintWriter pw) {
-        if (interfaces.length == 0) return;
+    private void unparseInterfaces(List<ReferenceType> interfaces, PrintWriter pw) {
+        if (interfaces.isEmpty()) return;
         boolean firstVisited = false;
         pw.append(" implements ");
         for (ReferenceType inte : interfaces) {
@@ -133,7 +134,7 @@ public class Unparser {
         }
     }
 
-    private void unparseAnnotations(Annotation[] annotations, PrintWriter pw) {
+    private void unparseAnnotations(List<Annotation> annotations, PrintWriter pw) {
         for (Annotation annotation : annotations) {
             appendIndent(pw);
             unparseAnnotation(annotation, pw);
@@ -253,19 +254,22 @@ public class Unparser {
         appendIndent(pw).append("}").println();
     }
 
-    private void unparseMethodParameters(Type[] parameterTypes, PrintWriter pw) {
-        if (parameterTypes.length == 0) return;
-        pw.append(parameterTypes[0].toString());
-        for (int i = 1; i < parameterTypes.length; i++) {
-            pw.append(", ").append(parameterTypes[i].toString());
+    private void unparseMethodParameters(List<Type> parameterTypes, PrintWriter pw) {
+        if (parameterTypes.isEmpty()) return;
+        Iterator<Type> it = parameterTypes.iterator();
+        pw.append(it.next().toString());
+        while (it.hasNext()) {
+            pw.append(", ").append(it.next().toString());
         }
     }
 
-    private void unparseMethodExceptions(Type[] exceptionTypes, PrintWriter pw) {
-        if (exceptionTypes.length == 0) return;
-        pw.append(" throws ").append(exceptionTypes[0].toString());
-        for (int i = 1; i < exceptionTypes.length; i++) {
-            pw.append(", ").append(exceptionTypes[i].toString());
+    private void unparseMethodExceptions(List<ReferenceType> exceptionTypes, PrintWriter pw) {
+        if (exceptionTypes.isEmpty()) return;
+        pw.append(" throws ");
+        Iterator<ReferenceType> it = exceptionTypes.iterator();
+        pw.append(it.next().toString());
+        while (it.hasNext()) {
+            pw.append(", ").append(it.next().toString());
         }
     }
 
@@ -484,16 +488,17 @@ public class Unparser {
         appendIndent(pw).append("}");
     }
 
-    private void unparseBootstrapMethodArguments(Value[] arguments, PrintWriter pw) {
+    private void unparseBootstrapMethodArguments(List<Value> arguments, PrintWriter pw) {
         appendIndent(pw).append("{").println();
         push();
-        if (arguments.length > 0) {
+        if (!arguments.isEmpty()) {
             appendIndent(pw);
-            unparseValue(arguments[0], pw);
-            for (int i = 1; i < arguments.length; i++) {
+            Iterator<Value> it = arguments.iterator();
+            unparseValue(it.next(), pw);
+            while (it.hasNext()) {
                 pw.append(",").println();
                 appendIndent(pw);
-                unparseValue(arguments[i], pw);
+                unparseValue(it.next(), pw);
             }
             pw.println();
         }
@@ -501,7 +506,7 @@ public class Unparser {
         appendIndent(pw).append("}").println();
     }
 
-    private boolean hasModifier(Modifier[] modifiers, String keyword) {
+    private boolean hasModifier(List<Modifier> modifiers, String keyword) {
         for (Modifier modifier : modifiers) {
             if (modifier.keyword.equals(keyword)) {
                 return true;
