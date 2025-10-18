@@ -145,12 +145,16 @@ public class Decompiler {
 
     private static String[] parseIdentifiers(String internalName, int begin, int end) {
         List<String> list = new ArrayList<>();
-        int prev = begin, next;
-        while ((next = internalName.indexOf('/', prev)) != -1) {
-            list.add(internalName.substring(prev, next));
-            prev = next + 1;
+        int i = begin;
+        while (i < end) {
+            int slash = internalName.indexOf('/', i);
+            if (slash == -1 || slash >= end) {
+                list.add(internalName.substring(i, end));
+                break;
+            }
+            list.add(internalName.substring(i, slash));
+            i = slash + 1;
         }
-        list.add(internalName.substring(prev, end));
         return list.toArray(EMPTY_STRING_ARRAY);
     }
 
