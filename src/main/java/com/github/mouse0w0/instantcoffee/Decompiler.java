@@ -383,7 +383,7 @@ public class Decompiler {
         private ReferenceType superclass;
         private ReferenceType[] interfaces;
 
-        private SourceDeclaration source;
+        private StringLiteral source;
 
         private final List<Annotation> annotations = new ArrayList<>();
         private final List<InnerClassDeclaration> innerClasses = new ArrayList<>();
@@ -410,7 +410,9 @@ public class Decompiler {
 
         @Override
         public void visitSource(String source, String debug) {
-            this.source = new SourceDeclaration(Location.UNKNOWN, new StringLiteral(Location.UNKNOWN, "\"" + escape(source) + "\""));
+            if (source != null) {
+                this.source = new StringLiteral(Location.UNKNOWN, "\"" + escape(source) + "\"");
+            }
         }
 
         @Override

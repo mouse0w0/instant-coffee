@@ -181,10 +181,10 @@ public class Unparser {
         pw.println();
     }
 
-    private void unparseSource(SourceDeclaration sd, PrintWriter pw) {
-        if (sd == null) return;
+    private void unparseSource(StringLiteral source, PrintWriter pw) {
+        if (source == null) return;
         pw.println();
-        appendIndent(pw).append("source ").append(sd.file.toString());
+        appendIndent(pw).append("source ").append(source.toString());
         pw.println();
     }
 

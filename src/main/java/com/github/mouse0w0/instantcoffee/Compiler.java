@@ -183,9 +183,9 @@ public class Compiler {
         return l.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private void compileSource(SourceDeclaration sd, ClassFile cf) {
-        if (sd == null) return;
-        cf.visitSource(getConstantValue2(sd.file), null);
+    private void compileSource(StringLiteral source, ClassFile cf) {
+        if (source == null) return;
+        cf.visitSource(getConstantValue2(source), null);
     }
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {

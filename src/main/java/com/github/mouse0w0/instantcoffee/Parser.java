@@ -89,8 +89,8 @@ public class Parser {
             return;
         }
 
-        if (peek("source")) {
-            cd.source = parseSourceDeclaration();
+        if (peekRead("source")) {
+            cd.source = parseStringLiteral();
             return;
         }
 
@@ -153,12 +153,6 @@ public class Parser {
         }
 
         cd.fields.add(parseFieldDeclaration(location, annotations, modifiers, returnType, name));
-    }
-
-    private SourceDeclaration parseSourceDeclaration() {
-        Location location = location();
-        read("source");
-        return new SourceDeclaration(location, parseStringLiteral());
     }
 
     private InnerClassDeclaration parseInnerClassDeclaration(Modifier[] modifiers) {

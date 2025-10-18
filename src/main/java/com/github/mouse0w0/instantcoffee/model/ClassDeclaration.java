@@ -12,7 +12,7 @@ public class ClassDeclaration extends Located {
     public String[] identifiers;
     public ReferenceType superclass;
     public ReferenceType[] interfaces;
-    public SourceDeclaration source;
+    public StringLiteral source;
     public List<InnerClassDeclaration> innerClasses;
     public List<FieldDeclaration> fields;
     public List<MethodDeclaration> methods;
@@ -29,7 +29,7 @@ public class ClassDeclaration extends Located {
         this.methods = new ArrayList<>();
     }
 
-    public ClassDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, String[] identifiers, ReferenceType superclass, ReferenceType[] interfaces, SourceDeclaration source, List<InnerClassDeclaration> innerClasses, List<FieldDeclaration> fields, List<MethodDeclaration> methods) {
+    public ClassDeclaration(Location location, Annotation[] annotations, Modifier[] modifiers, String[] identifiers, ReferenceType superclass, ReferenceType[] interfaces, StringLiteral source, List<InnerClassDeclaration> innerClasses, List<FieldDeclaration> fields, List<MethodDeclaration> methods) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;
