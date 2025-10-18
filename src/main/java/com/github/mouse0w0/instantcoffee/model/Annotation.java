@@ -2,8 +2,8 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
+import java.util.Iterator;
 import java.util.List;
-import java.util.StringJoiner;
 
 public class Annotation extends Located implements AnnotationValue {
     public ReferenceType type;
@@ -22,11 +22,13 @@ public class Annotation extends Located implements AnnotationValue {
         if (pairs.isEmpty()) {
             return "@" + type;
         } else {
-            StringJoiner joiner = new StringJoiner(", ", "(", ")");
-            for (AnnotationValuePair pair : pairs) {
-                joiner.add(pair.toString());
+            StringBuilder builder = new StringBuilder("@").append(type.toString()).append("(");
+            Iterator<AnnotationValuePair> it = pairs.iterator();
+            builder.append(it.next());
+            while (it.hasNext()) {
+                builder.append(", ").append(it.next());
             }
-            return "@" + type + joiner;
+            return builder.append(")").toString();
         }
     }
 }

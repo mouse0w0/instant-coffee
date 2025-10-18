@@ -2,8 +2,8 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
+import java.util.Iterator;
 import java.util.List;
-import java.util.StringJoiner;
 
 public class MethodType extends Located implements HandleType {
     public List<Type> parameterTypes;
@@ -20,11 +20,14 @@ public class MethodType extends Located implements HandleType {
         if (parameterTypes.isEmpty()) {
             return "()" + returnType;
         } else {
-            StringJoiner joiner = new StringJoiner(",", "(", ")" + returnType);
-            for (Type parameterType : parameterTypes) {
-                joiner.add(parameterType.toString());
+            StringBuilder builder = new StringBuilder("(");
+            Iterator<Type> it = parameterTypes.iterator();
+            builder.append(it.next().toString());
+            while (it.hasNext()) {
+                builder.append(", ").append(it.next().toString());
             }
-            return joiner.toString();
+            builder.append(")").append(returnType.toString());
+            return builder.toString();
         }
     }
 }
