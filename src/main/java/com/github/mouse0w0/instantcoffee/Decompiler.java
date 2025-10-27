@@ -428,7 +428,11 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return new NormalAnnotationVisitor(descriptor, visible, cd.annotations::add);
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            annotation.visible = visible;
+            cd.annotations.add(annotation);
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
@@ -484,12 +488,29 @@ public class Decompiler {
 
         @Override
         public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-            return new MyFieldVisitor(access, name, descriptor, signature, value, cd.fields::add);
+            FieldDeclaration fd = new FieldDeclaration(Location.UNKNOWN);
+            fd.modifiers = parseFieldModifiers(access);
+            fd.type = parseType(descriptor);
+            fd.name = name;
+            fd.value = parseValue(value);
+            cd.fields.add(fd);
+            return new MyFieldVisitor(fd);
         }
 
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-            return new MyMethodVisitor(access, name, descriptor, signature, exceptions, cd.methods::add);
+            MethodDeclaration md = new MethodDeclaration(Location.UNKNOWN);
+            md.modifiers = parseMethodModifiers(access);
+            md.name = name;
+            md.parameterTypes = parseParameterTypes(descriptor);
+            md.returnType = parseReturnType(descriptor);
+            if (exceptions != null) {
+                for (String exception : exceptions) {
+                    md.exceptionTypes.add(parseInternal(exception));
+                }
+            }
+            cd.methods.add(md);
+            return new MyMethodVisitor(md);
         }
 
         @Override
@@ -499,27 +520,20 @@ public class Decompiler {
     }
 
     private class MyFieldVisitor extends FieldVisitor {
-        private final List<Modifier> modifiers;
-        private final Type type;
-        private final String name;
-        private final Value value;
+        private final FieldDeclaration fd;
 
-        private final Consumer<FieldDeclaration> callback;
-
-        private final List<Annotation> annotations = new ArrayList<>();
-
-        public MyFieldVisitor(int access, String name, String descriptor, String signature, Object value, Consumer<FieldDeclaration> callback) {
+        public MyFieldVisitor(FieldDeclaration fd) {
             super(Opcodes.ASM9);
-            this.modifiers = parseFieldModifiers(access);
-            this.type = parseType(descriptor);
-            this.name = name;
-            this.value = parseValue(value);
-            this.callback = callback;
+            this.fd = fd;
         }
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return new NormalAnnotationVisitor(descriptor, visible, annotations::add);
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            annotation.visible = visible;
+            fd.annotations.add(annotation);
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
@@ -539,42 +553,19 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new FieldDeclaration(Location.UNKNOWN, annotations, modifiers, type, name, value));
+            // Nothing to do.
         }
     }
 
     private class MyMethodVisitor extends MethodVisitor {
-        private final List<Modifier> modifiers;
-        private final String name;
-
-        private final List<Type> parameterTypes;
-        private final Type returnType;
-        private final List<ReferenceType> exceptionTypes;
-
-        private final Consumer<MethodDeclaration> callback;
-
-        private final List<Annotation> annotations = new ArrayList<>();
+        private final MethodDeclaration md;
         private final List<Statement> statements = new ArrayList<>();
 
         private final Map<org.objectweb.asm.Label, Label> labelMap = new HashMap<>();
 
-        private AnnotationValue defaultValue = null;
-
-        public MyMethodVisitor(int access, String name, String descriptor, String signature, String[] exceptions, Consumer<MethodDeclaration> callback) {
+        public MyMethodVisitor(MethodDeclaration md) {
             super(Opcodes.ASM9);
-            this.modifiers = parseMethodModifiers(access);
-            this.name = name;
-            this.parameterTypes = parseParameterTypes(descriptor);
-            this.returnType = parseReturnType(descriptor);
-            if (exceptions != null) {
-                this.exceptionTypes = new ArrayList<>(exceptions.length);
-                for (String exception : exceptions) {
-                    this.exceptionTypes.add(parseInternal(exception));
-                }
-            } else {
-                this.exceptionTypes = new ArrayList<>(0);
-            }
-            this.callback = callback;
+            this.md = md;
         }
 
         @Override
@@ -586,12 +577,16 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotationDefault() {
-            return new ValueAnnotationVisitor(value -> defaultValue = value);
+            return new ValueAnnotationVisitor(value -> md.defaultValue = value);
         }
 
         @Override
         public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-            return new NormalAnnotationVisitor(descriptor, visible, annotations::add);
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            annotation.visible = visible;
+            md.annotations.add(annotation);
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
@@ -832,37 +827,20 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new MethodDeclaration(
-                    Location.UNKNOWN,
-                    annotations,
-                    modifiers,
-                    returnType,
-                    name,
-                    parameterTypes,
-                    exceptionTypes,
-                    defaultValue,
-                    new Block(Location.UNKNOWN, statements)
-            ));
+            md.body = new Block(Location.UNKNOWN, statements);
         }
     }
 
     private static class NormalAnnotationVisitor extends AnnotationVisitor {
-        private final ReferenceType type;
-        private final boolean visible;
+        private final Annotation annotation;
 
-        private final Consumer<Annotation> callback;
-
-        private final List<AnnotationValuePair> values = new ArrayList<>();
-
-        public NormalAnnotationVisitor(String descriptor, boolean visible, Consumer<Annotation> callback) {
+        public NormalAnnotationVisitor(Annotation annotation) {
             super(Opcodes.ASM9);
-            this.type = parseInternal(descriptor, 1, descriptor.length() - 1);
-            this.visible = visible;
-            this.callback = callback;
+            this.annotation = annotation;
         }
 
         private void addValue(String name, AnnotationValue value) {
-            values.add(new AnnotationValuePair(Location.UNKNOWN, name, value));
+            annotation.pairs.add(new AnnotationValuePair(Location.UNKNOWN, name, value));
         }
 
         @Override
@@ -877,7 +855,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-            return new NormalAnnotationVisitor(descriptor, true, annotation -> addValue(name, annotation));
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            addValue(name, annotation);
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
@@ -887,7 +868,7 @@ public class Decompiler {
 
         @Override
         public void visitEnd() {
-            callback.accept(new Annotation(Location.UNKNOWN, type, values, visible));
+            // Nothing to do.
         }
     }
 
@@ -913,7 +894,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-            return new NormalAnnotationVisitor(descriptor, true, annotation -> annotationValue = annotation);
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            annotationValue = annotation;
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
@@ -949,7 +933,10 @@ public class Decompiler {
 
         @Override
         public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-            return new NormalAnnotationVisitor(descriptor, true, values::add);
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            values.add(annotation);
+            return new NormalAnnotationVisitor(annotation);
         }
 
         @Override
