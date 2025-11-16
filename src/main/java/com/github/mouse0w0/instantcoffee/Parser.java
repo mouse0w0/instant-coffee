@@ -633,12 +633,12 @@ public class Parser {
         return parseIdentifier();
     }
 
-    private String[] parseQualifiedIdentifier() {
+    private List<String> parseQualifiedIdentifier() {
         List<String> result = new ArrayList<>();
         do {
             result.add(parseIdentifier());
         } while (peekRead("."));
-        return result.toArray(Constants.EMPTY_STRING_ARRAY);
+        return result;
     }
 
     private Type parseVoidOrType() {

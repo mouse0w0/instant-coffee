@@ -6,8 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Constants implements Opcodes {
-    public static final String[] EMPTY_STRING_ARRAY = {};
-
     public static final int NOT_FOUND = -1;
 
     public static final int FLAG_INTERFACE = 0x10000;

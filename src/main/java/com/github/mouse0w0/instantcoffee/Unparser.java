@@ -113,12 +113,12 @@ public class Unparser {
         }
     }
 
-    private void unparseIdentifiers(String[] identifiers, PrintWriter pw) {
-        if (identifiers.length != 0) {
-            pw.append(identifiers[0]);
-            for (int i = 1; i < identifiers.length; i++) {
-                pw.append(".").append(identifiers[i]);
-            }
+    private void unparseIdentifiers(List<String> identifiers, PrintWriter pw) {
+        if (identifiers.isEmpty()) return;
+        Iterator<String> it = identifiers.iterator();
+        pw.append(it.next());
+        while (it.hasNext()) {
+            pw.append(".").append(it.next());
         }
     }
 

@@ -12,6 +12,8 @@ import java.util.*;
 import static com.github.mouse0w0.instantcoffee.Constants.*;
 
 public class Compiler {
+    private static final String[] EMPTY_STRING_ARRAY = {};
+
     public Compiler() {
     }
 
@@ -48,15 +50,11 @@ public class Compiler {
         return getInternalName2(type.identifiers);
     }
 
-    private String getInternalName2(String[] identifiers) {
-        if (identifiers.length == 1) {
-            return identifiers[0];
+    private String getInternalName2(List<String> identifiers) {
+        if (identifiers.size() == 1) {
+            return identifiers.get(0);
         }
-        StringBuilder stringBuilder = new StringBuilder(identifiers[0]);
-        for (int i = 1; i < identifiers.length; i++) {
-            stringBuilder.append("/").append(identifiers[i]);
-        }
-        return stringBuilder.toString();
+        return String.join("/", identifiers);
     }
 
     private String getDescriptor(Type type) {
@@ -73,7 +71,7 @@ public class Compiler {
         }
     }
 
-    private String getDescriptor(String[] identifiers) {
+    private String getDescriptor(List<String> identifiers) {
         return "L" + getInternalName2(identifiers) + ";";
     }
 

@@ -139,11 +139,11 @@ public class Decompiler {
         return l;
     }
 
-    private static String[] parseIdentifiers(String internalName) {
+    private static List<String> parseIdentifiers(String internalName) {
         return parseIdentifiers(internalName, 0, internalName.length());
     }
 
-    private static String[] parseIdentifiers(String internalName, int begin, int end) {
+    private static List<String> parseIdentifiers(String internalName, int begin, int end) {
         List<String> list = new ArrayList<>();
         int i = begin;
         while (i < end) {
@@ -155,7 +155,7 @@ public class Decompiler {
             list.add(internalName.substring(i, slash));
             i = slash + 1;
         }
-        return list.toArray(EMPTY_STRING_ARRAY);
+        return list;
     }
 
     private static Type parseArrayOrInternal(String internalName) {

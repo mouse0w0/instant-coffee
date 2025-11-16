@@ -9,7 +9,7 @@ public class ClassDeclaration extends Located {
     public IntegerLiteral version;
     public List<Annotation> annotations;
     public List<Modifier> modifiers;
-    public String[] identifiers;
+    public List<String> identifiers;
     public ReferenceType superclass;
     public List<ReferenceType> interfaces;
     public StringLiteral source;
@@ -23,6 +23,7 @@ public class ClassDeclaration extends Located {
         super(location);
         this.annotations = new ArrayList<>();
         this.modifiers = new ArrayList<>();
+        this.identifiers = new ArrayList<>();
         this.interfaces = new ArrayList<>();
         this.nestMembers = new ArrayList<>();
         this.innerClasses = new ArrayList<>();
@@ -30,7 +31,7 @@ public class ClassDeclaration extends Located {
         this.methods = new ArrayList<>();
     }
 
-    public ClassDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, String[] identifiers, ReferenceType superclass, List<ReferenceType> interfaces) {
+    public ClassDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, List<String> identifiers, ReferenceType superclass, List<ReferenceType> interfaces) {
         super(location);
         this.annotations = annotations;
         this.modifiers = modifiers;

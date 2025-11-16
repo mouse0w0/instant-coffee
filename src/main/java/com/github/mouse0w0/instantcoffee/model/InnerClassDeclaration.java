@@ -7,10 +7,10 @@ import java.util.List;
 public class InnerClassDeclaration extends Located {
     public InnerClassType type;
     public List<Modifier> modifiers;
-    public String[] name;
+    public List<String> name;
     public String innerName;
 
-    public InnerClassDeclaration(Location location, InnerClassType type, List<Modifier> modifiers, String[] name, String innerName) {
+    public InnerClassDeclaration(Location location, InnerClassType type, List<Modifier> modifiers, List<String> name, String innerName) {
         super(location);
         this.type = type;
         this.modifiers = modifiers;
