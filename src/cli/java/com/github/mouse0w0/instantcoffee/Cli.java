@@ -6,10 +6,13 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -25,6 +28,7 @@ public class Cli {
     private static boolean skipLineNumber;
     private static boolean skipLocalVariable;
     private static boolean failOnUnsupported;
+    private static boolean printTextify;
 
     public static void main(String[] args) {
         try {
@@ -48,6 +52,8 @@ public class Cli {
                     .availableIf(decompileSpec);
             OptionSpec<Void> failOnUnsupportedSpec = parser.accepts("fail-on-unsupported", "Fail on unsupported feature")
                     .availableIf(decompileSpec);
+            OptionSpec<Void> printTextifySpec = parser.acceptsAll(Arrays.asList("T", "print-textify"), "Print textify")
+                    .availableIf(decompileSpec);
 
             OptionSet options;
             try {
@@ -65,6 +71,7 @@ public class Cli {
             skipLineNumber = options.has(skipLineNumberSpec);
             skipLocalVariable = options.has(skipLocalVariableSpec);
             failOnUnsupported = options.has(failOnUnsupportedSpec);
+            printTextify = options.has(printTextifySpec);
 
             if (Files.notExists(source)) {
                 System.err.println("Source file/directory does not exist: " + source);
@@ -116,9 +123,10 @@ public class Cli {
 
     private static void processFile(Path file) throws IOException {
         if (decompile) {
+            byte[] bytes = Files.readAllBytes(file);
+            ClassReader classReader = new ClassReader(bytes);
             Decompiler decompiler = new Decompiler();
             decompiler.setFailOnUnsupportedFeature(failOnUnsupported);
-            ClassReader classReader = new ClassReader(Files.readAllBytes(file));
             ClassDeclaration classDeclaration = decompiler.decompileClass(classReader);
             Unparser unparser = new Unparser();
             unparser.setIndent(indent);
@@ -127,6 +135,12 @@ public class Cli {
             Path output = destination.resolve(String.join("/", classDeclaration.identifiers) + ".ic");
             try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(output))) {
                 unparser.unparseClass(classDeclaration, writer);
+            }
+            if (printTextify) {
+                Path textifyOutput = destination.resolve(String.join("/", classDeclaration.identifiers) + ".txt");
+                try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(textifyOutput))) {
+                    new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(writer)), ClassReader.SKIP_FRAMES);
+                }
             }
         } else {
             try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
