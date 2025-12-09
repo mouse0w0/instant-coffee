@@ -30,6 +30,7 @@ public class Compiler {
         cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
         compileSource(cd.source, cf);
         compileNestHost(cd.nestHost, cf);
+        compileNestMembers(cd.nestMembers, cf);
         compileAnnotations(cd.annotations, cf);
         compileInnerClasses(cd.innerClasses, cf);
         compileFields(cd.fields, cf);
@@ -181,7 +182,6 @@ public class Compiler {
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
-
     private void compileSource(StringLiteral source, ClassFile cf) {
         if (source == null) return;
         cf.visitSource(getConstantValue2(source), null);
@@ -190,6 +190,13 @@ public class Compiler {
     private void compileNestHost(ReferenceType nestHost, ClassFile cf) {
         if (nestHost == null) return;
         cf.visitNestHost(getInternalName2(nestHost));
+    }
+
+    private void compileNestMembers(List<ReferenceType> nestMembers, ClassFile cf) {
+        if (nestMembers.isEmpty()) return;
+        for (ReferenceType nestMember : nestMembers) {
+            cf.visitNestMember(getInternalName2(nestMember));
+        }
     }
 
     private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
