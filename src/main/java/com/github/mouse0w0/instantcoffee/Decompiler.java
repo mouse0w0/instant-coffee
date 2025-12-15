@@ -7,6 +7,8 @@ import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
 import com.github.mouse0w0.instantcoffee.model.statement.Label;
 import org.objectweb.asm.*;
+import org.objectweb.asm.signature.SignatureReader;
+import org.objectweb.asm.signature.SignatureVisitor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -391,10 +393,19 @@ public class Decompiler {
             cd.version = parseVersion(version);
             cd.modifiers = parseClassModifiers(access);
             cd.identifiers = parseIdentifiers(name);
-            cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
-            for (String inte : interfaces) {
-                cd.interfaces.add(parseInternal(inte));
+            if (signature == null) {
+                cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
+                for (String inte : interfaces) {
+                    cd.interfaces.add(parseInternal(inte));
+                }
+            } else {
+                parseClassSignature(signature, cd);
             }
+        }
+
+        private void parseClassSignature(String signature, ClassDeclaration cd) {
+            new SignatureReader(signature).accept(new SignatureVisitor(Opcodes.ASM9) {
+            });
         }
 
         @Override
