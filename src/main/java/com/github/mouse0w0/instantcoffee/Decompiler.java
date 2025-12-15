@@ -390,11 +390,19 @@ public class Decompiler {
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             cd.version = parseVersion(version);
             cd.modifiers = parseClassModifiers(access);
-            cd.identifiers = parseIdentifiers(name);
-            cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
-            for (String inte : interfaces) {
-                cd.interfaces.add(parseInternal(inte));
+            if (signature == null) {
+                cd.identifiers = parseIdentifiers(name);
+                cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
+                for (String inte : interfaces) {
+                    cd.interfaces.add(parseInternal(inte));
+                }
+            } else {
+                parseClassSignature(signature, cd);
             }
+        }
+
+        private void parseClassSignature(String signature, ClassDeclaration cd) {
+            
         }
 
         @Override

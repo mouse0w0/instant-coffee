@@ -68,12 +68,44 @@ public class Parser {
                 parseAnnotations(),
                 parseModifiers(),
                 parseQualifiedIdentifier(),
+                parseTypeParameters(),
                 parseSuperclass(),
                 parseInterfaces());
 
         parseClassBody(classDeclaration);
 
         return classDeclaration;
+    }
+
+    private List<TypeParameter> parseTypeParameters() {
+        List<TypeParameter> typeParameters = new ArrayList<>();
+        if (peekRead("<")) {
+            do {
+                typeParameters.add(parseTypeParameter());
+            } while (peekRead(","));
+            read(">");
+        }
+        return typeParameters;
+    }
+
+    private TypeParameter parseTypeParameter() {
+        Location location = location();
+        String name = parseIdentifier();
+        if (peekRead("extends")) {
+            return new TypeParameter(location, name, parseBounds(), false);
+        } else if (peekRead("implements")) {
+            return new TypeParameter(location, name, parseBounds(), true);
+        } else {
+            return new TypeParameter(location, name);
+        }
+    }
+
+    private List<ReferenceType> parseBounds() {
+        List<ReferenceType> bounds = new ArrayList<>();
+        do {
+            bounds.add(parseReferenceType());
+        } while (peekRead("&"));
+        return bounds;
     }
 
     private void parseClassBody(ClassDeclaration cd) {
@@ -192,6 +224,7 @@ public class Parser {
                 location,
                 annotations,
                 modifiers,
+                new ArrayList<>(),
                 new VoidType(location),
                 "<clinit>",
                 new ArrayList<>(),
@@ -206,6 +239,7 @@ public class Parser {
                 location,
                 annotations,
                 modifiers,
+                new ArrayList<>(),
                 returnType,
                 name,
                 parseMethodParameterTypes(),
