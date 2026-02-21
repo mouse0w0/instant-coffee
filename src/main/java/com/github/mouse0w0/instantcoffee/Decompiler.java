@@ -7,8 +7,6 @@ import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
 import com.github.mouse0w0.instantcoffee.model.statement.Label;
 import org.objectweb.asm.*;
-import org.objectweb.asm.signature.SignatureReader;
-import org.objectweb.asm.signature.SignatureVisitor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -404,8 +402,135 @@ public class Decompiler {
         }
 
         private void parseClassSignature(String signature, ClassDeclaration cd) {
-            new SignatureReader(signature).accept(new SignatureVisitor(Opcodes.ASM9) {
-            });
+            StringScanner sc = new StringScanner(signature);
+            // 解析类型参数
+            if (sc.peekRead('<')) {
+                cd.typeParameters = parseTypeParameters(sc);
+                sc.read(); // read '>'
+            }
+            // 解析超类，如果为java.lang.Object则为空
+            cd.superclass = parseReferenceType(sc);
+            // 解析接口
+            while (sc.peekRead(':')) {
+                cd.interfaces.add(parseReferenceType(sc));
+            }
+        }
+
+        private List<TypeParameter> parseTypeParameters(StringScanner sc) {
+            List<TypeParameter> l = new ArrayList<>();
+
+            while (!sc.peekRead('>')) {
+                TypeParameter tp = new TypeParameter(Location.UNKNOWN);
+                // 解析类型参数名称
+                int startPos = sc.pos();
+                while (sc.hasNext() && sc.peek() != ':') {
+                    sc.next();
+                }
+                tp.name = sc.substring(startPos, sc.pos());
+
+                // 解析边界
+                if (sc.peekRead(':')) {
+                    // 第一个边界是 extends 边界
+                    if (sc.peek() != ':') {
+                        tp.bounds.add(parseReferenceType(sc));
+                    }
+                    // 后续边界是接口边界（用额外的 : 分隔）
+                    while (sc.peekRead(':')) {
+                        tp.bounds.add(parseReferenceType(sc));
+                    }
+                    // 如果有多个边界，则标记为接口边界
+                    if (tp.bounds.size() > 1) {
+                        tp.isInterfaceBounds = true;
+                    }
+                }
+                l.add(tp);
+            }
+            return l;
+        }
+
+        private Type parseTypeSignature(StringScanner sc) {
+            switch (sc.read()) {
+                case 'V':
+                    return new VoidType(Location.UNKNOWN);
+                case 'Z':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
+                case 'C':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
+                case 'B':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
+                case 'S':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
+                case 'I':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
+                case 'F':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
+                case 'J':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
+                case 'D':
+                    return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
+                case '[':
+                    return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
+                case 'L':
+                    return parseReferenceType(sc);
+                case '(':
+                    throw new IllegalArgumentException("method signature");
+                default:
+                    throw new IllegalArgumentException();
+            }
+        }
+
+        private ReferenceType parseReferenceType(StringScanner sc) {
+            List<String> identifiers = new ArrayList<>();
+            List<TypeArgument> typeArguments = new ArrayList<>();
+            int prev = sc.pos();
+            while (sc.hasNext()) {
+                switch (sc.peek()) {
+                    case '<':
+                        identifiers.add(sc.substring(prev, sc.pos()));
+                        sc.next();
+                        typeArguments = parseTypeArguments(sc);
+                        break;
+                    case ';':
+                        identifiers.add(sc.substring(prev, sc.pos()));
+                        sc.next();
+                        return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+                    case '/':
+                        identifiers.add(sc.substring(prev, sc.pos()));
+                        prev = sc.pos() + 1;
+                        sc.next();
+                        break;
+                    default:
+                        sc.next();
+                }
+            }
+            return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+        }
+
+        private List<TypeArgument> parseTypeArguments(StringScanner sc) {
+            List<TypeArgument> l = new ArrayList<>();
+            while (sc.hasNext() && sc.peek() != '>') {
+                l.add(parseTypeArgument(sc));
+            }
+            if (sc.peek() == '>') {
+                sc.next();
+            }
+            return l;
+        }
+
+        private TypeArgument parseTypeArgument(StringScanner sc) {
+            switch (sc.peek()) {
+                case '*':
+                    sc.next();
+                    return new Wildcard(Location.UNKNOWN);
+                case '+':
+                    sc.next();
+                    return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceType(sc));
+                case '-':
+                    sc.next();
+                    return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceType(sc));
+                default:
+                    return parseReferenceType(sc);
+            }
         }
 
         @Override

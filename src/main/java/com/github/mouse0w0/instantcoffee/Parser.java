@@ -749,7 +749,30 @@ public class Parser {
     }
 
     private ReferenceType parseReferenceType() {
-        return new ReferenceType(location(), parseQualifiedIdentifier());
+        Location location = location();
+        List<String> identifiers = parseQualifiedIdentifier();
+        List<TypeArgument> typeArguments = new ArrayList<>();
+        if (peekRead("<")) {
+            do {
+                typeArguments.add(parseTypeArgument());
+            } while (peekRead(","));
+            read(">");
+        }
+        return new ReferenceType(location, identifiers, typeArguments);
+    }
+
+    private TypeArgument parseTypeArgument() {
+        Location location = location();
+        if (peekRead("?")) {
+            if (peekRead("extends")) {
+                return new Wildcard(location, Wildcard.Bounds.EXTENDS, parseReferenceType());
+            } else if (peekRead("super")) {
+                return new Wildcard(location, Wildcard.Bounds.SUPER, parseReferenceType());
+            } else {
+                return new Wildcard(location);
+            }
+        }
+        return parseReferenceType();
     }
 
     private int parseBrackets() {
