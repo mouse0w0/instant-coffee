@@ -85,6 +85,7 @@ public class Unparser {
         push();
         unparseModifiers(cd.modifiers, pw);
         unparseIdentifiers(cd.identifiers, pw);
+        unparseTypeParameters(cd.typeParameters, pw);
         unparseSuperclass(cd.superclass, pw);
         unparseInterfaces(cd.interfaces, pw);
         pw.append(" {").println();
@@ -120,6 +121,17 @@ public class Unparser {
         while (it.hasNext()) {
             pw.append(".").append(it.next());
         }
+    }
+
+    private void unparseTypeParameters(List<TypeParameter> typeParameters, PrintWriter pw) {
+        if (typeParameters.isEmpty()) return;
+        pw.append("<");
+        Iterator<TypeParameter> it = typeParameters.iterator();
+        pw.append(it.next().toString());
+        while (it.hasNext()) {
+            pw.append(", ").append(it.next().toString());
+        }
+        pw.append(">");
     }
 
     private void unparseSuperclass(ReferenceType superclass, PrintWriter pw) {
@@ -260,6 +272,7 @@ public class Unparser {
         } else {
             appendIndent(pw);
             unparseModifiers(md.modifiers, pw);
+            unparseTypeParameters(md.typeParameters, pw);
             if ("<init>".equals(md.name)) {
                 pw.append("<init>");
             } else {

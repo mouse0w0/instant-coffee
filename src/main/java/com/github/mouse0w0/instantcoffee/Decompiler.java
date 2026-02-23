@@ -405,7 +405,6 @@ public class Decompiler {
             StringScanner sc = new StringScanner(signature);
             if (sc.peekRead('<')) {
                 cd.typeParameters = parseTypeParameters(sc);
-                sc.read(); // read '>'
             }
             cd.superclass = parseReferenceType(sc);
             while (sc.peekRead(':')) {
