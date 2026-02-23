@@ -403,14 +403,11 @@ public class Decompiler {
 
         private void parseClassSignature(String signature, ClassDeclaration cd) {
             StringScanner sc = new StringScanner(signature);
-            // 解析类型参数
             if (sc.peekRead('<')) {
                 cd.typeParameters = parseTypeParameters(sc);
                 sc.read(); // read '>'
             }
-            // 解析超类，如果为java.lang.Object则为空
             cd.superclass = parseReferenceType(sc);
-            // 解析接口
             while (sc.peekRead(':')) {
                 cd.interfaces.add(parseReferenceType(sc));
             }
@@ -421,26 +418,25 @@ public class Decompiler {
 
             while (!sc.peekRead('>')) {
                 TypeParameter tp = new TypeParameter(Location.UNKNOWN);
-                // 解析类型参数名称
+                // Parse parameter name
                 int startPos = sc.pos();
                 while (sc.hasNext() && sc.peek() != ':') {
                     sc.next();
                 }
                 tp.name = sc.substring(startPos, sc.pos());
 
-                // 解析边界
+                // Parse parameter bounds
                 if (sc.peekRead(':')) {
-                    // 第一个边界是 extends 边界
+                    // Parse superclass bound
                     if (sc.peek() != ':') {
                         tp.bounds.add(parseReferenceType(sc));
+                    } else {
+                        tp.isInterfaceBounds = true;
                     }
-                    // 后续边界是接口边界（用额外的 : 分隔）
+
+                    // Parse interface bounds
                     while (sc.peekRead(':')) {
                         tp.bounds.add(parseReferenceType(sc));
-                    }
-                    // 如果有多个边界，则标记为接口边界
-                    if (tp.bounds.size() > 1) {
-                        tp.isInterfaceBounds = true;
                     }
                 }
                 l.add(tp);
