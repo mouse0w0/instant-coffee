@@ -129,12 +129,10 @@ public class Unparser {
 
     private void unparseInterfaces(List<ReferenceType> interfaces, PrintWriter pw) {
         if (interfaces.isEmpty()) return;
-        boolean firstVisited = false;
-        pw.append(" implements ");
-        for (ReferenceType inte : interfaces) {
-            if (firstVisited) pw.append(", ");
-            else firstVisited = true;
-            pw.append(inte.toString());
+        Iterator<ReferenceType> it = interfaces.iterator();
+        pw.append(" implements ").append(it.next().toString());
+        while (it.hasNext()) {
+            pw.append(", ").append(it.next().toString());
         }
     }
 
@@ -147,16 +145,27 @@ public class Unparser {
     }
 
     private void unparseAnnotation(Annotation annotation, PrintWriter pw) {
-        pw.append("@").append(annotation.type.toString()).append("(");
-        boolean firstVisited = false;
-        for (AnnotationValuePair pair : annotation.pairs) {
-            if (firstVisited) pw.append(", ");
-            else firstVisited = true;
-            pw.append(pair.key).append(" = ");
-            unparseAnnotationValue(pair.value, pw);
+        pw.append("@").append(annotation.type.toString());
+
+        if (!annotation.pairs.isEmpty()) {
+            pw.append("(");
+            Iterator<AnnotationValuePair> it = annotation.pairs.iterator();
+            unparseAnnotationValuePair(it.next(), pw);
+            while (it.hasNext()) {
+                pw.append(", ");
+                unparseAnnotationValuePair(it.next(), pw);
+            }
+            pw.append(")");
         }
-        pw.append(")");
-        if (!annotation.visible) pw.append(" invisible");
+
+        if (!annotation.visible) {
+            pw.append(" invisible");
+        }
+    }
+
+    private void unparseAnnotationValuePair(AnnotationValuePair pair, PrintWriter pw) {
+        pw.append(pair.key).append(" = ");
+        unparseAnnotationValue(pair.value, pw);
     }
 
     private void unparseAnnotationValue(AnnotationValue value, PrintWriter pw) {
@@ -170,13 +179,17 @@ public class Unparser {
     }
 
     private void unparseAnnotationValueArray(AnnotationValueArrayInitializer array, PrintWriter pw) {
-        boolean firstVisited = false;
         pw.append("{");
-        for (AnnotationValue value : array.values) {
-            if (firstVisited) pw.append(", ");
-            else firstVisited = true;
-            unparseAnnotationValue(value, pw);
+
+        if (!array.values.isEmpty()) {
+            Iterator<AnnotationValue> it = array.values.iterator();
+            unparseAnnotationValue(it.next(), pw);
+            while (it.hasNext()) {
+                pw.append(", ");
+                unparseAnnotationValue(it.next(), pw);
+            }
         }
+
         pw.append("}");
     }
 
