@@ -170,6 +170,122 @@ public class Decompiler {
         }
     }
 
+    private static List<TypeParameter> parseTypeParameters(StringScanner sc) {
+        List<TypeParameter> l = new ArrayList<>();
+
+        while (!sc.peekRead('>')) {
+            TypeParameter tp = new TypeParameter(Location.UNKNOWN);
+            // Parse parameter name
+            int startPos = sc.pos();
+            while (sc.hasNext() && sc.peek() != ':') {
+                sc.next();
+            }
+            tp.name = sc.substring(startPos, sc.pos());
+
+            // Parse parameter bounds
+            if (sc.peekRead(':')) {
+                // Parse superclass bound
+                if (sc.peek() != ':') {
+                    tp.bounds.add(parseReferenceType(sc));
+                } else {
+                    tp.isInterfaceBounds = true;
+                }
+
+                // Parse interface bounds
+                while (sc.peekRead(':')) {
+                    tp.bounds.add(parseReferenceType(sc));
+                }
+            }
+            l.add(tp);
+        }
+        return l;
+    }
+
+    private static Type parseTypeSignature(StringScanner sc) {
+        switch (sc.read()) {
+            case 'V':
+                return new VoidType(Location.UNKNOWN);
+            case 'Z':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
+            case 'C':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
+            case 'B':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
+            case 'S':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
+            case 'I':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
+            case 'F':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
+            case 'J':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
+            case 'D':
+                return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
+            case '[':
+                return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
+            case 'L':
+                return parseReferenceType(sc);
+            case '(':
+                throw new IllegalArgumentException("method signature");
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    private static ReferenceType parseReferenceType(StringScanner sc) {
+        List<String> identifiers = new ArrayList<>();
+        List<TypeArgument> typeArguments = new ArrayList<>();
+        int prev = sc.pos();
+        while (sc.hasNext()) {
+            switch (sc.peek()) {
+                case '<':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    sc.next();
+                    typeArguments = parseTypeArguments(sc);
+                    break;
+                case ';':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    sc.next();
+                    return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+                case '/':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    prev = sc.pos() + 1;
+                    sc.next();
+                    break;
+                default:
+                    sc.next();
+            }
+        }
+        return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+    }
+
+    private static List<TypeArgument> parseTypeArguments(StringScanner sc) {
+        List<TypeArgument> l = new ArrayList<>();
+        while (sc.hasNext() && sc.peek() != '>') {
+            l.add(parseTypeArgument(sc));
+        }
+        if (sc.peek() == '>') {
+            sc.next();
+        }
+        return l;
+    }
+
+    private static TypeArgument parseTypeArgument(StringScanner sc) {
+        switch (sc.peek()) {
+            case '*':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN);
+            case '+':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceType(sc));
+            case '-':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceType(sc));
+            default:
+                return parseReferenceType(sc);
+        }
+    }
+
     private static ReferenceType parseInternal(String internalName) {
         return parseInternal(internalName, 0, internalName.length());
     }
@@ -409,122 +525,6 @@ public class Decompiler {
             cd.superclass = parseReferenceType(sc);
             while (sc.peekRead(':')) {
                 cd.interfaces.add(parseReferenceType(sc));
-            }
-        }
-
-        private List<TypeParameter> parseTypeParameters(StringScanner sc) {
-            List<TypeParameter> l = new ArrayList<>();
-
-            while (!sc.peekRead('>')) {
-                TypeParameter tp = new TypeParameter(Location.UNKNOWN);
-                // Parse parameter name
-                int startPos = sc.pos();
-                while (sc.hasNext() && sc.peek() != ':') {
-                    sc.next();
-                }
-                tp.name = sc.substring(startPos, sc.pos());
-
-                // Parse parameter bounds
-                if (sc.peekRead(':')) {
-                    // Parse superclass bound
-                    if (sc.peek() != ':') {
-                        tp.bounds.add(parseReferenceType(sc));
-                    } else {
-                        tp.isInterfaceBounds = true;
-                    }
-
-                    // Parse interface bounds
-                    while (sc.peekRead(':')) {
-                        tp.bounds.add(parseReferenceType(sc));
-                    }
-                }
-                l.add(tp);
-            }
-            return l;
-        }
-
-        private Type parseTypeSignature(StringScanner sc) {
-            switch (sc.read()) {
-                case 'V':
-                    return new VoidType(Location.UNKNOWN);
-                case 'Z':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
-                case 'C':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
-                case 'B':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
-                case 'S':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
-                case 'I':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
-                case 'F':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
-                case 'J':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
-                case 'D':
-                    return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
-                case '[':
-                    return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
-                case 'L':
-                    return parseReferenceType(sc);
-                case '(':
-                    throw new IllegalArgumentException("method signature");
-                default:
-                    throw new IllegalArgumentException();
-            }
-        }
-
-        private ReferenceType parseReferenceType(StringScanner sc) {
-            List<String> identifiers = new ArrayList<>();
-            List<TypeArgument> typeArguments = new ArrayList<>();
-            int prev = sc.pos();
-            while (sc.hasNext()) {
-                switch (sc.peek()) {
-                    case '<':
-                        identifiers.add(sc.substring(prev, sc.pos()));
-                        sc.next();
-                        typeArguments = parseTypeArguments(sc);
-                        break;
-                    case ';':
-                        identifiers.add(sc.substring(prev, sc.pos()));
-                        sc.next();
-                        return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
-                    case '/':
-                        identifiers.add(sc.substring(prev, sc.pos()));
-                        prev = sc.pos() + 1;
-                        sc.next();
-                        break;
-                    default:
-                        sc.next();
-                }
-            }
-            return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
-        }
-
-        private List<TypeArgument> parseTypeArguments(StringScanner sc) {
-            List<TypeArgument> l = new ArrayList<>();
-            while (sc.hasNext() && sc.peek() != '>') {
-                l.add(parseTypeArgument(sc));
-            }
-            if (sc.peek() == '>') {
-                sc.next();
-            }
-            return l;
-        }
-
-        private TypeArgument parseTypeArgument(StringScanner sc) {
-            switch (sc.peek()) {
-                case '*':
-                    sc.next();
-                    return new Wildcard(Location.UNKNOWN);
-                case '+':
-                    sc.next();
-                    return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceType(sc));
-                case '-':
-                    sc.next();
-                    return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceType(sc));
-                default:
-                    return parseReferenceType(sc);
             }
         }
 
