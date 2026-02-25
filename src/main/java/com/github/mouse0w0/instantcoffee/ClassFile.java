@@ -1,35 +1,17 @@
 package com.github.mouse0w0.instantcoffee;
 
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
+public class ClassFile {
+    private final String className;
+    private final String classQualifiedName;
+    private final String classInternalName;
+    private final byte[] byteArray;
 
-public class ClassFile extends ClassVisitor {
-    private final ClassWriter cw;
-
-    private String className;
-    private String classQualifiedName;
-    private String classInternalName;
-    private String classDescriptor;
-
-    public ClassFile() {
-        super(Opcodes.ASM9);
-        cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-        cv = cw;
-    }
-
-    @Override
-    public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-        int classNameSeparatorIndex = name.lastIndexOf('/');
-        this.className = classNameSeparatorIndex != -1 ? name.substring(classNameSeparatorIndex + 1) : name;
-        this.classQualifiedName = name.replace('/', '.');
-        this.classInternalName = name;
-        this.classDescriptor = "L" + name + ";";
-
-        super.visit(version, access, name, signature, superName, interfaces);
-
-        // Fix compute maxs for switch insn
-        cw.setFlags(ClassWriter.COMPUTE_MAXS);
+    public ClassFile(String classInternalName, byte[] byteArray) {
+        int classNameSeparatorIndex = classInternalName.lastIndexOf('/');
+        this.className = classNameSeparatorIndex != -1 ? classInternalName.substring(classNameSeparatorIndex + 1) : classInternalName;
+        this.classQualifiedName = classInternalName.replace('/', '.');
+        this.classInternalName = classInternalName;
+        this.byteArray = byteArray;
     }
 
     public String getClassName() {
@@ -44,11 +26,7 @@ public class ClassFile extends ClassVisitor {
         return classInternalName;
     }
 
-    public String getClassDescriptor() {
-        return classDescriptor;
-    }
-
     public byte[] toByteArray() {
-        return cw.toByteArray();
+        return byteArray;
     }
 }

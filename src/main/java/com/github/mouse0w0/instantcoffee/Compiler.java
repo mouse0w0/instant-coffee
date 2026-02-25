@@ -18,26 +18,23 @@ public class Compiler {
     }
 
     public ClassFile compile(ClassDeclaration cd) {
-        return compile(cd, new ClassFile());
-    }
-
-    public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
+        ClassCompiler cc = new ClassCompiler(cd);
         int version = getVersion(cd.version);
         int access = getClassAccess(cd.modifiers);
         String name = getInternalName2(cd.identifiers);
-        String signature = needClassSignature(cd) ? getClassSignature(cd) : null;
+        String signature = needClassSignature(cd) ? getClassSignature(cd, cc) : null;
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
-        cf.visit(version, access, name, signature, superclass, interfaces);
-        compileSource(cd.source, cf);
-        compileNestHost(cd.nestHost, cf);
-        compileNestMembers(cd.nestMembers, cf);
-        compileAnnotations(cd.annotations, cf);
-        compileInnerClasses(cd.innerClasses, cf);
-        compileFields(cd.fields, cf);
-        compileMethods(cd.methods, cf);
-        cf.visitEnd();
-        return cf;
+        cc.visit(version, access, name, signature, superclass, interfaces);
+        compileSource(cd.source, cc);
+        compileNestHost(cd.nestHost, cc);
+        compileNestMembers(cd.nestMembers, cc);
+        compileAnnotations(cd.annotations, cc);
+        compileInnerClasses(cd.innerClasses, cc);
+        compileFields(cd.fields, cc);
+        compileMethods(cd.methods, cc);
+        cc.visitEnd();
+        return cc.toClassFile();
     }
 
     private String getInternalName(Type type) {
@@ -73,10 +70,6 @@ public class Compiler {
         }
     }
 
-    private String getDescriptor(List<String> identifiers) {
-        return "L" + getInternalName2(identifiers) + ";";
-    }
-
     private String getDescriptor2(PrimitiveType type) {
         switch (type.primitive) {
             case BOOLEAN:
@@ -105,7 +98,7 @@ public class Compiler {
     }
 
     private String getDescriptor2(ReferenceType type) {
-        return "L" + getInternalName2(type.identifiers) + ";";
+        return "L" + getInternalName2(type) + ";";
     }
 
     private String getDescriptor2(VoidType type) {
@@ -143,7 +136,7 @@ public class Compiler {
         return false;
     }
 
-    private String getClassSignature(ClassDeclaration cd) {
+    private String getClassSignature(ClassDeclaration cd, Scope scope) {
         StringBuilder sb = new StringBuilder();
 
         if (!cd.typeParameters.isEmpty()) {
@@ -154,20 +147,20 @@ public class Compiler {
                     sb.append(":");
                 }
                 for (ReferenceType bound : tp.bounds) {
-                    sb.append(":").append(getTypeSignature2(bound));
+                    sb.append(":").append(getTypeSignature2(bound, scope));
                 }
             }
             sb.append(">");
         }
 
         if (cd.superclass != null) {
-            sb.append(getTypeSignature2(cd.superclass));
+            sb.append(getTypeSignature2(cd.superclass, scope));
         } else {
             sb.append("Ljava/lang/Object;");
         }
 
         for (ReferenceType inte : cd.interfaces) {
-            sb.append(getTypeSignature2(inte));
+            sb.append(getTypeSignature2(inte, scope));
         }
         return sb.toString();
     }
@@ -182,13 +175,13 @@ public class Compiler {
         }
     }
 
-    private String getTypeSignature(Type type) {
+    private String getTypeSignature(Type type, Scope scope) {
         if (type instanceof PrimitiveType) {
             return getTypeSignature2((PrimitiveType) type);
         } else if (type instanceof ArrayType) {
-            return getTypeSignature2((ArrayType) type);
+            return getTypeSignature2((ArrayType) type, scope);
         } else if (type instanceof ReferenceType) {
-            return getTypeSignature2((ReferenceType) type);
+            return getTypeSignature2((ReferenceType) type, scope);
         } else if (type instanceof VoidType) {
             return getTypeSignature2((VoidType) type);
         } else {
@@ -204,41 +197,45 @@ public class Compiler {
         return getDescriptor2(type);
     }
 
-    private String getTypeSignature2(ArrayType type) {
-        return "[" + getTypeSignature(type.componentType);
+    private String getTypeSignature2(ArrayType type, Scope scope) {
+        return "[" + getTypeSignature(type.componentType, scope);
     }
 
-    private String getTypeSignature2(ReferenceType type) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("L").append(getInternalName2(type.identifiers));
-        if (!type.typeArguments.isEmpty()) {
-            sb.append("<");
-            for (TypeArgument arg : type.typeArguments) {
-                sb.append(getTypeSignature2(arg));
-            }
-            sb.append(">");
-        }
-        sb.append(";");
-        return sb.toString();
-    }
-
-    private String getTypeSignature2(TypeArgument arg) {
-        if (arg instanceof ReferenceType) {
-            return getTypeSignature2((ReferenceType) arg);
-        } else if (arg instanceof Wildcard) {
-            return getTypeSignature2((Wildcard) arg);
+    private String getTypeSignature2(ReferenceType type, Scope scope) {
+        if (scope.isTypeVariable(type)) {
+            return "T" + type.identifiers.get(0) + ";";
         } else {
-            throw new InternalCompileException(arg.getClass().getName());
+            StringBuilder sb = new StringBuilder();
+            sb.append("L").append(getInternalName2(type));
+            if (!type.typeArguments.isEmpty()) {
+                sb.append("<");
+                for (TypeArgument arg : type.typeArguments) {
+                    sb.append(getTypeArgumentSignature(arg, scope));
+                }
+                sb.append(">");
+            }
+            sb.append(";");
+            return sb.toString();
         }
     }
 
-    private String getTypeSignature2(Wildcard wildcard) {
+    private String getTypeArgumentSignature(TypeArgument typeArgument, Scope scope) {
+        if (typeArgument instanceof ReferenceType) {
+            return getTypeSignature2((ReferenceType) typeArgument, scope);
+        } else if (typeArgument instanceof Wildcard) {
+            return getTypeSignature2((Wildcard) typeArgument, scope);
+        } else {
+            throw new InternalCompileException(typeArgument.getClass().getName());
+        }
+    }
+
+    private String getTypeSignature2(Wildcard wildcard, Scope scope) {
         if (wildcard.bounds == null) {
             return "*";
         } else if (wildcard.bounds == Wildcard.Bounds.EXTENDS) {
-            return "+" + getTypeSignature2(wildcard.referenceType);
+            return "+" + getTypeSignature2(wildcard.referenceType, scope);
         } else if (wildcard.bounds == Wildcard.Bounds.SUPER) {
-            return "-" + getTypeSignature2(wildcard.referenceType);
+            return "-" + getTypeSignature2(wildcard.referenceType, scope);
         } else {
             throw new InternalCompileException();
         }
@@ -282,36 +279,36 @@ public class Compiler {
     }
 
     private String getSuperclass(ReferenceType superclass) {
-        return superclass != null ? getInternalName2(superclass.identifiers) : "java/lang/Object";
+        return superclass != null ? getInternalName2(superclass) : "java/lang/Object";
     }
 
     private String[] getInterfaces(List<ReferenceType> interfaces) {
         if (interfaces.isEmpty()) return null;
         List<String> l = new ArrayList<>();
         for (ReferenceType inte : interfaces) {
-            l.add(getInternalName2(inte.identifiers));
+            l.add(getInternalName2(inte));
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private void compileSource(StringLiteral source, ClassFile cf) {
+    private void compileSource(StringLiteral source, ClassCompiler cc) {
         if (source == null) return;
-        cf.visitSource(getConstantValue2(source), null);
+        cc.visitSource(getConstantValue2(source), null);
     }
 
-    private void compileNestHost(ReferenceType nestHost, ClassFile cf) {
+    private void compileNestHost(ReferenceType nestHost, ClassCompiler cc) {
         if (nestHost == null) return;
-        cf.visitNestHost(getInternalName2(nestHost));
+        cc.visitNestHost(getInternalName2(nestHost));
     }
 
-    private void compileNestMembers(List<ReferenceType> nestMembers, ClassFile cf) {
+    private void compileNestMembers(List<ReferenceType> nestMembers, ClassCompiler cc) {
         if (nestMembers.isEmpty()) return;
         for (ReferenceType nestMember : nestMembers) {
-            cf.visitNestMember(getInternalName2(nestMember));
+            cc.visitNestMember(getInternalName2(nestMember));
         }
     }
 
-    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
+    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassCompiler cc) {
         for (InnerClassDeclaration innerClass : innerClasses) {
             String name = getInternalName2(innerClass.name);
             String innerName = innerClass.innerName;
@@ -320,14 +317,14 @@ public class Compiler {
             // 根据类型调整访问标志
             switch (innerClass.type) {
                 case ANONYMOUS:
-                    cf.visitInnerClass(name, null, null, access);
+                    cc.visitInnerClass(name, null, null, access);
                     break;
                 case LOCAL:
-                    cf.visitInnerClass(name, null, innerName, access);
+                    cc.visitInnerClass(name, null, innerName, access);
                     break;
                 case MEMBER_OR_STATIC:
                     String outerName = name.substring(0, name.length() - innerName.length() - 1);
-                    cf.visitInnerClass(name, outerName, innerName, access);
+                    cc.visitInnerClass(name, outerName, innerName, access);
                     break;
             }
         }
@@ -364,18 +361,18 @@ public class Compiler {
         return access;
     }
 
-    private void compileFields(List<FieldDeclaration> fields, ClassFile cf) {
+    private void compileFields(List<FieldDeclaration> fields, ClassCompiler cc) {
         for (FieldDeclaration field : fields) {
-            compileField(field, cf);
+            compileField(field, cc);
         }
     }
 
-    private void compileField(FieldDeclaration field, ClassFile cf) {
+    private void compileField(FieldDeclaration field, ClassCompiler cc) {
         int access = getFieldAccess(field.modifiers);
         String name = field.name;
         String descriptor = getDescriptor(field.type);
         Object value = field.value != null ? getConstantValue(field.value) : null;
-        FieldVisitor fv = cf.visitField(access, name, descriptor, null, value); // TODO: signature
+        FieldVisitor fv = cc.visitField(access, name, descriptor, null, value); // TODO: signature
 
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
@@ -412,9 +409,9 @@ public class Compiler {
         return access;
     }
 
-    private void compileMethods(List<MethodDeclaration> methods, ClassFile cf) {
+    private void compileMethods(List<MethodDeclaration> methods, ClassCompiler cc) {
         for (MethodDeclaration method : methods) {
-            compileMethod(method, cf);
+            compileMethod(method, cc);
         }
     }
 
@@ -426,13 +423,13 @@ public class Compiler {
         return l.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private void compileMethod(MethodDeclaration method, ClassFile cf) {
+    private void compileMethod(MethodDeclaration method, ClassCompiler cc) {
         int access = getMethodAccess(method.modifiers);
         String name = method.name;
         String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
-        MethodVisitor mv = cf.visitMethod(access, name, descriptor, null, exceptions); // TODO: signature
+        MethodVisitor mv = cc.visitMethod(access, name, descriptor, null, exceptions); // TODO: signature
 
         compileAnnotations(method.annotations, mv);
         compileMethodDefaultValue(method.defaultValue, mv);
@@ -743,9 +740,9 @@ public class Compiler {
                 tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
-    private void compileAnnotations(List<Annotation> annotations, ClassFile cf) {
+    private void compileAnnotations(List<Annotation> annotations, ClassCompiler cs) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, cf.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
+            compileAnnotation(annotation, cs.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
