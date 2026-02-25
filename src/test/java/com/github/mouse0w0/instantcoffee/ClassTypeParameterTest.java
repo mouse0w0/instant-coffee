@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 public class ClassTypeParameterTest {
     @Test
     public void test() {
-        Utils.validate(ClassTypeParameter.class, false, true);
+        Utils.validate(ClassTypeParameter.class, true, false);
     }
 
     // signature <T:Ljava/lang/Object;U:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$A;V::Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$B;W:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$A;:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$B;X::Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$B;:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$C;Y:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$A;:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$B;:Lcom/github/mouse0w0/instantcoffee/ClassTypeParameterTest$C;>Ljava/lang/Object;

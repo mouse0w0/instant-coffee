@@ -202,26 +202,36 @@ public class Decompiler {
     }
 
     private static Type parseTypeSignature(StringScanner sc) {
-        switch (sc.read()) {
+        switch (sc.peek()) {
             case 'V':
+                sc.read();
                 return new VoidType(Location.UNKNOWN);
             case 'Z':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
             case 'C':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
             case 'B':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
             case 'S':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
             case 'I':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
             case 'F':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
             case 'J':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
             case 'D':
+                sc.read();
                 return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
             case '[':
+                sc.read();
                 return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
             case 'L':
                 return parseReferenceType(sc);
@@ -233,6 +243,8 @@ public class Decompiler {
     }
 
     private static ReferenceType parseReferenceType(StringScanner sc) {
+        sc.next(); // Skip 'L'
+
         List<String> identifiers = new ArrayList<>();
         List<TypeArgument> typeArguments = new ArrayList<>();
         int prev = sc.pos();
@@ -242,7 +254,8 @@ public class Decompiler {
                     identifiers.add(sc.substring(prev, sc.pos()));
                     sc.next();
                     typeArguments = parseTypeArguments(sc);
-                    break;
+                    sc.next(); // Skip ';'
+                    return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
                 case ';':
                     identifiers.add(sc.substring(prev, sc.pos()));
                     sc.next();
@@ -261,11 +274,8 @@ public class Decompiler {
 
     private static List<TypeArgument> parseTypeArguments(StringScanner sc) {
         List<TypeArgument> l = new ArrayList<>();
-        while (sc.hasNext() && sc.peek() != '>') {
+        while (!sc.peekRead('>')) {
             l.add(parseTypeArgument(sc));
-        }
-        if (sc.peek() == '>') {
-            sc.next();
         }
         return l;
     }
@@ -508,7 +518,7 @@ public class Decompiler {
             cd.modifiers = parseClassModifiers(access);
             cd.identifiers = parseIdentifiers(name);
             if (signature == null) {
-                cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
+                cd.superclass = parseInternal(superName);
                 for (String inte : interfaces) {
                     cd.interfaces.add(parseInternal(inte));
                 }
@@ -523,7 +533,7 @@ public class Decompiler {
                 cd.typeParameters = parseTypeParameters(sc);
             }
             cd.superclass = parseReferenceType(sc);
-            while (sc.peekRead(':')) {
+            while (sc.hasNext()) {
                 cd.interfaces.add(parseReferenceType(sc));
             }
         }

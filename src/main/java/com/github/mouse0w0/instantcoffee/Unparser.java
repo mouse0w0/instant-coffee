@@ -136,6 +136,7 @@ public class Unparser {
 
     private void unparseSuperclass(ReferenceType superclass, PrintWriter pw) {
         if (superclass == null) return;
+        if (isJavaLangObject(superclass)) return;
         pw.append(" extends ").append(superclass.toString());
     }
 
@@ -556,5 +557,11 @@ public class Unparser {
             }
         }
         return false;
+    }
+
+    private boolean isJavaLangObject(ReferenceType type) {
+        return "java".equals(type.identifiers.get(0)) &&
+                "lang".equals(type.identifiers.get(1)) &&
+                "Object".equals(type.identifiers.get(2));
     }
 }

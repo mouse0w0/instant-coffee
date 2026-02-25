@@ -25,9 +25,10 @@ public class Compiler {
         int version = getVersion(cd.version);
         int access = getClassAccess(cd.modifiers);
         String name = getInternalName2(cd.identifiers);
+        String signature = needClassSignature(cd) ? getClassSignature(cd) : null;
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
-        cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
+        cf.visit(version, access, name, signature, superclass, interfaces);
         compileSource(cd.source, cf);
         compileNestHost(cd.nestHost, cf);
         compileNestMembers(cd.nestMembers, cf);
@@ -133,6 +134,116 @@ public class Compiler {
         }
     }
 
+    private boolean needClassSignature(ClassDeclaration cd) {
+        if (!cd.typeParameters.isEmpty()) return true;
+        if (cd.superclass != null && !cd.superclass.typeArguments.isEmpty()) return true;
+        for (ReferenceType inte : cd.interfaces) {
+            if (!inte.typeArguments.isEmpty()) return true;
+        }
+        return false;
+    }
+
+    private String getClassSignature(ClassDeclaration cd) {
+        StringBuilder sb = new StringBuilder();
+
+        if (!cd.typeParameters.isEmpty()) {
+            sb.append("<");
+            for (TypeParameter tp : cd.typeParameters) {
+                sb.append(tp.name);
+                if (tp.isInterfaceBounds) {
+                    sb.append(":");
+                }
+                for (ReferenceType bound : tp.bounds) {
+                    sb.append(":").append(getTypeSignature2(bound));
+                }
+            }
+            sb.append(">");
+        }
+
+        if (cd.superclass != null) {
+            sb.append(getTypeSignature2(cd.superclass));
+        } else {
+            sb.append("Ljava/lang/Object;");
+        }
+
+        for (ReferenceType inte : cd.interfaces) {
+            sb.append(getTypeSignature2(inte));
+        }
+        return sb.toString();
+    }
+
+    private boolean needTypeSignature(Type type) {
+        if (type instanceof ReferenceType) {
+            return !((ReferenceType) type).typeArguments.isEmpty();
+        } else if (type instanceof ArrayType) {
+            return needTypeSignature(((ArrayType) type).componentType);
+        } else {
+            return false;
+        }
+    }
+
+    private String getTypeSignature(Type type) {
+        if (type instanceof PrimitiveType) {
+            return getTypeSignature2((PrimitiveType) type);
+        } else if (type instanceof ArrayType) {
+            return getTypeSignature2((ArrayType) type);
+        } else if (type instanceof ReferenceType) {
+            return getTypeSignature2((ReferenceType) type);
+        } else if (type instanceof VoidType) {
+            return getTypeSignature2((VoidType) type);
+        } else {
+            throw new InternalCompileException(type.getClass().getName());
+        }
+    }
+
+    private String getTypeSignature2(VoidType type) {
+        return getDescriptor2(type);
+    }
+
+    private String getTypeSignature2(PrimitiveType type) {
+        return getDescriptor2(type);
+    }
+
+    private String getTypeSignature2(ArrayType type) {
+        return "[" + getTypeSignature(type.componentType);
+    }
+
+    private String getTypeSignature2(ReferenceType type) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("L").append(getInternalName2(type.identifiers));
+        if (!type.typeArguments.isEmpty()) {
+            sb.append("<");
+            for (TypeArgument arg : type.typeArguments) {
+                sb.append(getTypeSignature2(arg));
+            }
+            sb.append(">");
+        }
+        sb.append(";");
+        return sb.toString();
+    }
+
+    private String getTypeSignature2(TypeArgument arg) {
+        if (arg instanceof ReferenceType) {
+            return getTypeSignature2((ReferenceType) arg);
+        } else if (arg instanceof Wildcard) {
+            return getTypeSignature2((Wildcard) arg);
+        } else {
+            throw new InternalCompileException(arg.getClass().getName());
+        }
+    }
+
+    private String getTypeSignature2(Wildcard wildcard) {
+        if (wildcard.bounds == null) {
+            return "*";
+        } else if (wildcard.bounds == Wildcard.Bounds.EXTENDS) {
+            return "+" + getTypeSignature2(wildcard.referenceType);
+        } else if (wildcard.bounds == Wildcard.Bounds.SUPER) {
+            return "-" + getTypeSignature2(wildcard.referenceType);
+        } else {
+            throw new InternalCompileException();
+        }
+    }
+
     private int getVersion(IntegerLiteral literal) {
         return getConstantValue2(literal).intValue() + 44;
     }
@@ -182,6 +293,7 @@ public class Compiler {
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
+
     private void compileSource(StringLiteral source, ClassFile cf) {
         if (source == null) return;
         cf.visitSource(getConstantValue2(source), null);

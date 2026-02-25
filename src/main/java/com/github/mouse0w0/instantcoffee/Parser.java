@@ -724,6 +724,47 @@ public class Parser {
         return type;
     }
 
+    private Type parseTypeWithArgs() {
+        Location location = location();
+        Type type;
+        switch (peekRead(PRIMITIVES)) {
+            case 0:
+                type = new PrimitiveType(location, Primitive.BOOLEAN);
+                break;
+            case 1:
+                type = new PrimitiveType(location, Primitive.CHAR);
+                break;
+            case 2:
+                type = new PrimitiveType(location, Primitive.BYTE);
+                break;
+            case 3:
+                type = new PrimitiveType(location, Primitive.SHORT);
+                break;
+            case 4:
+                type = new PrimitiveType(location, Primitive.INT);
+                break;
+            case 5:
+                type = new PrimitiveType(location, Primitive.FLOAT);
+                break;
+            case 6:
+                type = new PrimitiveType(location, Primitive.LONG);
+                break;
+            case 7:
+                type = new PrimitiveType(location, Primitive.DOUBLE);
+                break;
+            case -1:
+                type = parseReferenceTypeWithArgs();
+                break;
+            default:
+                throw new InternalCompileException();
+        }
+
+        for (int i = parseBrackets(); i > 0; i--) {
+            type = new ArrayType(location, type);
+        }
+        return type;
+    }
+
     private PrimitiveType parsePrimitiveType() {
         Location location = location();
         switch (read(PRIMITIVES)) {
@@ -749,6 +790,12 @@ public class Parser {
     }
 
     private ReferenceType parseReferenceType() {
+        Location location = location();
+        List<String> identifiers = parseQualifiedIdentifier();
+        return new ReferenceType(location, identifiers);
+    }
+
+    private ReferenceType parseReferenceTypeWithArgs() {
         Location location = location();
         List<String> identifiers = parseQualifiedIdentifier();
         List<TypeArgument> typeArguments = new ArrayList<>();
@@ -787,7 +834,7 @@ public class Parser {
 
     private ReferenceType parseSuperclass() {
         if (peekRead("extends")) {
-            return parseReferenceType();
+            return parseReferenceTypeWithArgs();
         }
         return null;
     }
@@ -796,7 +843,7 @@ public class Parser {
         List<ReferenceType> result = new ArrayList<>();
         if (peekRead("implements")) {
             do {
-                result.add(parseReferenceType());
+                result.add(parseReferenceTypeWithArgs());
             } while (peekRead(","));
         }
         return result;
