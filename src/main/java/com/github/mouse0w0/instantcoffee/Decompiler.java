@@ -234,42 +234,43 @@ public class Decompiler {
                 sc.read();
                 return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
             case 'L':
+            case 'T':
                 return parseReferenceType(sc);
             case '(':
-                throw new IllegalArgumentException("method signature");
+                throw new IllegalArgumentException("Type signature does not support method signature");
             default:
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("Invalid type signature with unexpected character '" + sc.peek() + "' at position " + sc.pos());
         }
     }
 
     private static ReferenceType parseReferenceType(StringScanner sc) {
-        sc.next(); // Skip 'L'
+        sc.next(); // Skip 'L' or 'T'
 
         List<String> identifiers = new ArrayList<>();
-        List<TypeArgument> typeArguments = new ArrayList<>();
         int prev = sc.pos();
         while (sc.hasNext()) {
             switch (sc.peek()) {
                 case '<':
                     identifiers.add(sc.substring(prev, sc.pos()));
-                    sc.next();
-                    typeArguments = parseTypeArguments(sc);
+                    sc.next(); // Skip '<'
+                    List<TypeArgument> typeArguments = parseTypeArguments(sc);
                     sc.next(); // Skip ';'
                     return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
                 case ';':
                     identifiers.add(sc.substring(prev, sc.pos()));
-                    sc.next();
-                    return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+                    sc.next(); // Skip ';'
+                    return new ReferenceType(Location.UNKNOWN, identifiers);
                 case '/':
                     identifiers.add(sc.substring(prev, sc.pos()));
-                    prev = sc.pos() + 1;
                     sc.next();
+                    prev = sc.pos();
                     break;
                 default:
                     sc.next();
+                    break;
             }
         }
-        return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+        throw new IllegalArgumentException("Invalid reference type signature");
     }
 
     private static List<TypeArgument> parseTypeArguments(StringScanner sc) {
