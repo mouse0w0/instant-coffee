@@ -201,6 +201,10 @@ public class Decompiler {
         return l;
     }
 
+    private static Type parseTypeSignature(String signature) {
+        return parseTypeSignature(new StringScanner(signature));
+    }
+
     private static Type parseTypeSignature(StringScanner sc) {
         switch (sc.peek()) {
             case 'V':
@@ -632,7 +636,7 @@ public class Decompiler {
         public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
             FieldDeclaration fd = new FieldDeclaration(Location.UNKNOWN);
             fd.modifiers = parseFieldModifiers(access);
-            fd.type = parseType(descriptor);
+            fd.type = signature != null ? parseTypeSignature(signature) : parseType(descriptor);
             fd.name = name;
             fd.value = parseValue(value);
             cd.fields.add(fd);
@@ -644,15 +648,34 @@ public class Decompiler {
             MethodDeclaration md = new MethodDeclaration(Location.UNKNOWN);
             md.modifiers = parseMethodModifiers(access);
             md.name = name;
-            md.parameterTypes = parseParameterTypes(descriptor);
-            md.returnType = parseReturnType(descriptor);
-            if (exceptions != null) {
-                for (String exception : exceptions) {
-                    md.exceptionTypes.add(parseInternal(exception));
+            if (signature == null) {
+                md.parameterTypes = parseParameterTypes(descriptor);
+                md.returnType = parseReturnType(descriptor);
+                if (exceptions != null) {
+                    for (String exception : exceptions) {
+                        md.exceptionTypes.add(parseInternal(exception));
+                    }
                 }
+            } else {
+                parseMethodSignature(signature, md);
             }
             cd.methods.add(md);
             return new MyMethodVisitor(md);
+        }
+
+        private void parseMethodSignature(String signature, MethodDeclaration md) {
+            StringScanner sc = new StringScanner(signature);
+            if (sc.peekRead('<')) {
+                md.typeParameters = parseTypeParameters(sc);
+            }
+            sc.next(); // Skip '('
+            while (!sc.peekRead(')')) {
+                md.parameterTypes.add(parseTypeSignature(sc));
+            }
+            md.returnType = parseTypeSignature(sc);
+            while (sc.peekRead('^')) {
+                md.exceptionTypes.add(parseReferenceType(sc));
+            }
         }
 
         @Override
@@ -940,7 +963,7 @@ public class Decompiler {
             statements.add(new LocalVariable(
                     Location.UNKNOWN,
                     name,
-                    parseType(descriptor),
+                    signature != null ? parseTypeSignature(signature) : parseType(descriptor),
                     getLabel(start).name,
                     getLabel(end).name,
                     parseIntegerLiteral(index)));

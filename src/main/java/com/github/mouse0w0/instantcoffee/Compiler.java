@@ -1,11 +1,12 @@
 package com.github.mouse0w0.instantcoffee;
 
 import com.github.mouse0w0.instantcoffee.model.*;
+import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
+import com.github.mouse0w0.instantcoffee.model.Handle;
+import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
-import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import com.github.mouse0w0.instantcoffee.model.statement.Label;
+import org.objectweb.asm.*;
 
 import java.util.*;
 
@@ -18,23 +19,28 @@ public class Compiler {
     }
 
     public ClassFile compile(ClassDeclaration cd) {
-        ClassCompiler cc = new ClassCompiler(cd);
+        ClassCompiler compiler = new ClassCompiler();
+        compileClass(cd, compiler);
+        return compiler.toClassFile();
+    }
+
+    private void compileClass(ClassDeclaration cd, ClassVisitor cv) {
+        ClassContext cc = new ClassContext(cd);
         int version = getVersion(cd.version);
         int access = getClassAccess(cd.modifiers);
         String name = getInternalName2(cd.identifiers);
         String signature = needClassSignature(cd) ? getClassSignature(cd, cc) : null;
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
-        cc.visit(version, access, name, signature, superclass, interfaces);
-        compileSource(cd.source, cc);
-        compileNestHost(cd.nestHost, cc);
-        compileNestMembers(cd.nestMembers, cc);
-        compileAnnotations(cd.annotations, cc);
-        compileInnerClasses(cd.innerClasses, cc);
-        compileFields(cd.fields, cc);
-        compileMethods(cd.methods, cc);
-        cc.visitEnd();
-        return cc.toClassFile();
+        cv.visit(version, access, name, signature, superclass, interfaces);
+        compileSource(cd.source, cv);
+        compileNestHost(cd.nestHost, cv);
+        compileNestMembers(cd.nestMembers, cv);
+        compileAnnotations(cd.annotations, cv);
+        compileInnerClasses(cd.innerClasses, cv);
+        compileFields(cd.fields, cv, cc);
+        compileMethods(cd.methods, cv, cc);
+        cv.visitEnd();
     }
 
     private String getInternalName(Type type) {
@@ -136,52 +142,93 @@ public class Compiler {
         return false;
     }
 
-    private String getClassSignature(ClassDeclaration cd, Scope scope) {
+    private String getClassSignature(ClassDeclaration cd, ClassContext cc) {
         StringBuilder sb = new StringBuilder();
 
-        if (!cd.typeParameters.isEmpty()) {
-            sb.append("<");
-            for (TypeParameter tp : cd.typeParameters) {
-                sb.append(tp.name);
-                if (tp.isInterfaceBounds) {
-                    sb.append(":");
-                }
-                for (ReferenceType bound : tp.bounds) {
-                    sb.append(":").append(getTypeSignature2(bound, scope));
-                }
-            }
-            sb.append(">");
-        }
+        buildTypeParameters(cd.typeParameters, cc, sb);
 
         if (cd.superclass != null) {
-            sb.append(getTypeSignature2(cd.superclass, scope));
+            sb.append(getTypeSignature2(cd.superclass, cc));
         } else {
             sb.append("Ljava/lang/Object;");
         }
 
         for (ReferenceType inte : cd.interfaces) {
-            sb.append(getTypeSignature2(inte, scope));
+            sb.append(getTypeSignature2(inte, cc));
         }
         return sb.toString();
     }
 
-    private boolean needTypeSignature(Type type) {
+    private boolean needMethodSignature(MethodDeclaration md, MethodContext mc) {
+        if (!md.typeParameters.isEmpty()) return true;
+        if (needTypeSignature(md.returnType, mc)) return true;
+        for (Type parameterType : md.parameterTypes) {
+            if (needTypeSignature(parameterType, mc)) {
+                return true;
+            }
+        }
+        for (ReferenceType exceptionType : md.exceptionTypes) {
+            if (needTypeSignature(exceptionType, mc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String getMethodSignature(MethodDeclaration md, MethodContext mc) {
+        StringBuilder sb = new StringBuilder();
+
+        buildTypeParameters(md.typeParameters, mc, sb);
+
+        sb.append("(");
+        for (Type parameterType : md.parameterTypes) {
+            sb.append(getTypeSignature(parameterType, mc));
+        }
+        sb.append(")");
+
+        sb.append(getTypeSignature(md.returnType, mc));
+
+        for (ReferenceType exceptionType : md.exceptionTypes) {
+            sb.append("^").append(getTypeSignature(exceptionType, mc));
+        }
+
+        return sb.toString();
+    }
+
+    private void buildTypeParameters(List<TypeParameter> typeParameters, Context cc, StringBuilder sb) {
+        if (!typeParameters.isEmpty()) {
+            sb.append("<");
+            for (TypeParameter tp : typeParameters) {
+                sb.append(tp.name);
+                if (tp.isInterfaceBounds) {
+                    sb.append(":");
+                }
+                for (ReferenceType bound : tp.bounds) {
+                    sb.append(":").append(getTypeSignature2(bound, cc));
+                }
+            }
+            sb.append(">");
+        }
+    }
+
+    private boolean needTypeSignature(Type type, Context cc) {
         if (type instanceof ReferenceType) {
-            return !((ReferenceType) type).typeArguments.isEmpty();
+            ReferenceType referenceType = (ReferenceType) type;
+            return cc.isTypeVariable(referenceType) || !referenceType.typeArguments.isEmpty();
         } else if (type instanceof ArrayType) {
-            return needTypeSignature(((ArrayType) type).componentType);
+            return needTypeSignature(((ArrayType) type).componentType, cc);
         } else {
             return false;
         }
     }
 
-    private String getTypeSignature(Type type, Scope scope) {
+    private String getTypeSignature(Type type, Context cc) {
         if (type instanceof PrimitiveType) {
             return getTypeSignature2((PrimitiveType) type);
         } else if (type instanceof ArrayType) {
-            return getTypeSignature2((ArrayType) type, scope);
+            return getTypeSignature2((ArrayType) type, cc);
         } else if (type instanceof ReferenceType) {
-            return getTypeSignature2((ReferenceType) type, scope);
+            return getTypeSignature2((ReferenceType) type, cc);
         } else if (type instanceof VoidType) {
             return getTypeSignature2((VoidType) type);
         } else {
@@ -197,12 +244,12 @@ public class Compiler {
         return getDescriptor2(type);
     }
 
-    private String getTypeSignature2(ArrayType type, Scope scope) {
-        return "[" + getTypeSignature(type.componentType, scope);
+    private String getTypeSignature2(ArrayType type, Context cc) {
+        return "[" + getTypeSignature(type.componentType, cc);
     }
 
-    private String getTypeSignature2(ReferenceType type, Scope scope) {
-        if (scope.isTypeVariable(type)) {
+    private String getTypeSignature2(ReferenceType type, Context cc) {
+        if (cc.isTypeVariable(type)) {
             return "T" + type.identifiers.get(0) + ";";
         } else {
             StringBuilder sb = new StringBuilder();
@@ -210,7 +257,7 @@ public class Compiler {
             if (!type.typeArguments.isEmpty()) {
                 sb.append("<");
                 for (TypeArgument arg : type.typeArguments) {
-                    sb.append(getTypeArgumentSignature(arg, scope));
+                    sb.append(getTypeArgumentSignature(arg, cc));
                 }
                 sb.append(">");
             }
@@ -219,25 +266,24 @@ public class Compiler {
         }
     }
 
-    private String getTypeArgumentSignature(TypeArgument typeArgument, Scope scope) {
+    private String getTypeArgumentSignature(TypeArgument typeArgument, Context cc) {
         if (typeArgument instanceof ReferenceType) {
-            return getTypeSignature2((ReferenceType) typeArgument, scope);
+            return getTypeSignature2((ReferenceType) typeArgument, cc);
         } else if (typeArgument instanceof Wildcard) {
-            return getTypeSignature2((Wildcard) typeArgument, scope);
+            return getTypeSignature2((Wildcard) typeArgument, cc);
         } else {
             throw new InternalCompileException(typeArgument.getClass().getName());
         }
     }
 
-    private String getTypeSignature2(Wildcard wildcard, Scope scope) {
-        if (wildcard.bounds == null) {
-            return "*";
-        } else if (wildcard.bounds == Wildcard.Bounds.EXTENDS) {
-            return "+" + getTypeSignature2(wildcard.referenceType, scope);
-        } else if (wildcard.bounds == Wildcard.Bounds.SUPER) {
-            return "-" + getTypeSignature2(wildcard.referenceType, scope);
-        } else {
-            throw new InternalCompileException();
+    private String getTypeSignature2(Wildcard wildcard, Context cc) {
+        switch (wildcard.bounds) {
+            case EXTENDS:
+                return "+" + getTypeSignature2(wildcard.referenceType, cc);
+            case SUPER:
+                return "-" + getTypeSignature2(wildcard.referenceType, cc);
+            default:
+                return "*";
         }
     }
 
@@ -291,24 +337,24 @@ public class Compiler {
         return l.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private void compileSource(StringLiteral source, ClassCompiler cc) {
+    private void compileSource(StringLiteral source, ClassVisitor cv) {
         if (source == null) return;
-        cc.visitSource(getConstantValue2(source), null);
+        cv.visitSource(getConstantValue2(source), null);
     }
 
-    private void compileNestHost(ReferenceType nestHost, ClassCompiler cc) {
+    private void compileNestHost(ReferenceType nestHost, ClassVisitor cv) {
         if (nestHost == null) return;
-        cc.visitNestHost(getInternalName2(nestHost));
+        cv.visitNestHost(getInternalName2(nestHost));
     }
 
-    private void compileNestMembers(List<ReferenceType> nestMembers, ClassCompiler cc) {
+    private void compileNestMembers(List<ReferenceType> nestMembers, ClassVisitor cv) {
         if (nestMembers.isEmpty()) return;
         for (ReferenceType nestMember : nestMembers) {
-            cc.visitNestMember(getInternalName2(nestMember));
+            cv.visitNestMember(getInternalName2(nestMember));
         }
     }
 
-    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassCompiler cc) {
+    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassVisitor cv) {
         for (InnerClassDeclaration innerClass : innerClasses) {
             String name = getInternalName2(innerClass.name);
             String innerName = innerClass.innerName;
@@ -317,14 +363,14 @@ public class Compiler {
             // 根据类型调整访问标志
             switch (innerClass.type) {
                 case ANONYMOUS:
-                    cc.visitInnerClass(name, null, null, access);
+                    cv.visitInnerClass(name, null, null, access);
                     break;
                 case LOCAL:
-                    cc.visitInnerClass(name, null, innerName, access);
+                    cv.visitInnerClass(name, null, innerName, access);
                     break;
                 case MEMBER_OR_STATIC:
                     String outerName = name.substring(0, name.length() - innerName.length() - 1);
-                    cc.visitInnerClass(name, outerName, innerName, access);
+                    cv.visitInnerClass(name, outerName, innerName, access);
                     break;
             }
         }
@@ -361,18 +407,19 @@ public class Compiler {
         return access;
     }
 
-    private void compileFields(List<FieldDeclaration> fields, ClassCompiler cc) {
+    private void compileFields(List<FieldDeclaration> fields, ClassVisitor cv, ClassContext cc) {
         for (FieldDeclaration field : fields) {
-            compileField(field, cc);
+            compileField(field, cv, cc);
         }
     }
 
-    private void compileField(FieldDeclaration field, ClassCompiler cc) {
+    private void compileField(FieldDeclaration field, ClassVisitor cv, ClassContext cc) {
         int access = getFieldAccess(field.modifiers);
         String name = field.name;
         String descriptor = getDescriptor(field.type);
+        String signature = needTypeSignature(field.type, cc) ? getTypeSignature(field.type, cc) : null;
         Object value = field.value != null ? getConstantValue(field.value) : null;
-        FieldVisitor fv = cc.visitField(access, name, descriptor, null, value); // TODO: signature
+        FieldVisitor fv = cv.visitField(access, name, descriptor, signature, value);
 
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
@@ -409,27 +456,21 @@ public class Compiler {
         return access;
     }
 
-    private void compileMethods(List<MethodDeclaration> methods, ClassCompiler cc) {
+    private void compileMethods(List<MethodDeclaration> methods, ClassVisitor cv, ClassContext cc) {
         for (MethodDeclaration method : methods) {
-            compileMethod(method, cc);
+            compileMethod(method, cv, cc);
         }
     }
 
-    private String[] getMethodExceptions(List<ReferenceType> types) {
-        List<String> l = new ArrayList<>();
-        for (ReferenceType type : types) {
-            l.add(getInternalName2(type));
-        }
-        return l.toArray(EMPTY_STRING_ARRAY);
-    }
-
-    private void compileMethod(MethodDeclaration method, ClassCompiler cc) {
+    private void compileMethod(MethodDeclaration method, ClassVisitor cv, ClassContext cc) {
+        MethodContext mc = new MethodContext(method, cc);
         int access = getMethodAccess(method.modifiers);
         String name = method.name;
         String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
+        String signature = needMethodSignature(method, mc) ? getMethodSignature(method, mc) : null;
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
-        MethodVisitor mv = cc.visitMethod(access, name, descriptor, null, exceptions); // TODO: signature
+        MethodVisitor mv = cv.visitMethod(access, name, descriptor, signature, exceptions);
 
         compileAnnotations(method.annotations, mv);
         compileMethodDefaultValue(method.defaultValue, mv);
@@ -478,6 +519,14 @@ public class Compiler {
             }
         }
         return access;
+    }
+
+    private String[] getMethodExceptions(List<ReferenceType> types) {
+        List<String> l = new ArrayList<>();
+        for (ReferenceType type : types) {
+            l.add(getInternalName2(type));
+        }
+        return l.toArray(EMPTY_STRING_ARRAY);
     }
 
     private void compileMethodDefaultValue(AnnotationValue defaultValue, MethodVisitor mv) {
@@ -740,9 +789,9 @@ public class Compiler {
                 tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
-    private void compileAnnotations(List<Annotation> annotations, ClassCompiler cs) {
+    private void compileAnnotations(List<Annotation> annotations, ClassVisitor cv) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, cs.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
+            compileAnnotation(annotation, cv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 

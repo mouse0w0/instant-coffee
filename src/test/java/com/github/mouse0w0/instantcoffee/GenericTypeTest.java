@@ -5,7 +5,7 @@ import java.util.List;
 
 public class GenericTypeTest {
     public static void main(String[] args) {
-        Utils.validate(GenericType.class);
+        Utils.validate(GenericType.class, false, true);
     }
 
     private static class GenericType<T, U extends Number, V extends Serializable> {
