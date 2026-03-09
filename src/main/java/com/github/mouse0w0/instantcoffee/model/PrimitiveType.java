@@ -12,6 +12,6 @@ public class PrimitiveType extends Located implements Type {
 
     @Override
     public String toString() {
-        return primitive.name().toLowerCase();
+        return primitive.lowerCaseName();
     }
 }
