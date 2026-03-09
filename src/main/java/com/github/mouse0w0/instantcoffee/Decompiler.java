@@ -185,7 +185,7 @@ public class Decompiler {
     private static Type parseType(String typeDescriptor, int begin, int end) {
         switch (typeDescriptor.charAt(begin)) {
             case 'V':
-                return new VoidType(Location.UNKNOWN);
+                return new PrimitiveType(Location.UNKNOWN, Primitive.VOID);
             case 'Z':
                 return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
             case 'C':
