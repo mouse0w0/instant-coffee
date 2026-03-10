@@ -68,12 +68,44 @@ public class Parser {
                 parseAnnotations(),
                 parseModifiers(),
                 parseQualifiedIdentifier(),
+                parseTypeParameters(),
                 parseSuperclass(),
                 parseInterfaces());
 
         parseClassBody(classDeclaration);
 
         return classDeclaration;
+    }
+
+    private List<TypeParameter> parseTypeParameters() {
+        List<TypeParameter> typeParameters = new ArrayList<>();
+        if (peekRead("<")) {
+            do {
+                typeParameters.add(parseTypeParameter());
+            } while (peekRead(","));
+            read(">");
+        }
+        return typeParameters;
+    }
+
+    private TypeParameter parseTypeParameter() {
+        Location location = location();
+        String name = parseIdentifier();
+        if (peekRead("extends")) {
+            return new TypeParameter(location, name, parseBounds(), false);
+        } else if (peekRead("implements")) {
+            return new TypeParameter(location, name, parseBounds(), true);
+        } else {
+            return new TypeParameter(location, name);
+        }
+    }
+
+    private List<ReferenceType> parseBounds() {
+        List<ReferenceType> bounds = new ArrayList<>();
+        do {
+            bounds.add(parseReferenceTypeWithArgs());
+        } while (peekRead("&"));
+        return bounds;
     }
 
     private void parseClassBody(ClassDeclaration cd) {
@@ -119,15 +151,16 @@ public class Parser {
             return;
         }
 
-        if (peekRead("<")) {
-            read("init");
-            read(">");
+        List<TypeParameter> typeParameters = parseTypeParameters();
+
+        if (peekRead("constructor")) {
             Location location = location();
             Type returnType = new PrimitiveType(location, Primitive.VOID);
             cd.methods.add(parseMethodDeclaration(
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     "<init>",
                     false));
@@ -142,13 +175,14 @@ public class Parser {
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     name,
                     false));
             return;
         }
 
-        Type returnType = parseType();
+        Type returnType = parseTypeWithArgs();
         Location location = location();
         String name = parseIdentifier();
         if (peek("(")) {
@@ -156,6 +190,7 @@ public class Parser {
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     name,
                     hasModifier(cd.modifiers, "@interface")));
@@ -192,6 +227,7 @@ public class Parser {
                 location,
                 annotations,
                 modifiers,
+                new ArrayList<>(),
                 new PrimitiveType(location, Primitive.VOID),
                 "<clinit>",
                 new ArrayList<>(),
@@ -201,11 +237,12 @@ public class Parser {
         );
     }
 
-    private MethodDeclaration parseMethodDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type returnType, String name, boolean allowDefaultClause) {
+    private MethodDeclaration parseMethodDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, List<TypeParameter> typeParameters, Type returnType, String name, boolean allowDefaultClause) {
         return new MethodDeclaration(
                 location,
                 annotations,
                 modifiers,
+                typeParameters,
                 returnType,
                 name,
                 parseMethodParameterTypes(),
@@ -222,7 +259,7 @@ public class Parser {
             return parameterTypes;
         }
         do {
-            parameterTypes.add(parseType());
+            parameterTypes.add(parseTypeWithArgs());
         } while (peekRead(","));
         read(")");
         return parameterTypes;
@@ -273,13 +310,12 @@ public class Parser {
         return new LocalVariable(
                 read("var").getLocation(),
                 parseIdentifier(),
-                parseType(),
+                parseTypeWithArgs(),
                 parseIdentifier(),
                 parseIdentifier(),
                 parseIntegerLiteral()
         );
     }
-
 
     private TryCatchBlock parseTryCatchBlock() {
         return new TryCatchBlock(
@@ -690,6 +726,47 @@ public class Parser {
         return type;
     }
 
+    private Type parseTypeWithArgs() {
+        Location location = location();
+        Type type;
+        switch (peekRead(PRIMITIVES)) {
+            case 0:
+                type = new PrimitiveType(location, Primitive.BOOLEAN);
+                break;
+            case 1:
+                type = new PrimitiveType(location, Primitive.CHAR);
+                break;
+            case 2:
+                type = new PrimitiveType(location, Primitive.BYTE);
+                break;
+            case 3:
+                type = new PrimitiveType(location, Primitive.SHORT);
+                break;
+            case 4:
+                type = new PrimitiveType(location, Primitive.INT);
+                break;
+            case 5:
+                type = new PrimitiveType(location, Primitive.FLOAT);
+                break;
+            case 6:
+                type = new PrimitiveType(location, Primitive.LONG);
+                break;
+            case 7:
+                type = new PrimitiveType(location, Primitive.DOUBLE);
+                break;
+            case -1:
+                type = parseReferenceTypeWithArgs();
+                break;
+            default:
+                throw new InternalCompileException();
+        }
+
+        for (int i = parseBrackets(); i > 0; i--) {
+            type = new ArrayType(location, type);
+        }
+        return type;
+    }
+
     private PrimitiveType parsePrimitiveType() {
         Location location = location();
         switch (read(PRIMITIVES)) {
@@ -715,7 +792,36 @@ public class Parser {
     }
 
     private ReferenceType parseReferenceType() {
-        return new ReferenceType(location(), parseQualifiedIdentifier());
+        Location location = location();
+        List<String> identifiers = parseQualifiedIdentifier();
+        return new ReferenceType(location, identifiers);
+    }
+
+    private ReferenceType parseReferenceTypeWithArgs() {
+        Location location = location();
+        List<String> identifiers = parseQualifiedIdentifier();
+        List<TypeArgument> typeArguments = new ArrayList<>();
+        if (peekRead("<")) {
+            do {
+                typeArguments.add(parseTypeArgument());
+            } while (peekRead(","));
+            read(">");
+        }
+        return new ReferenceType(location, identifiers, typeArguments);
+    }
+
+    private TypeArgument parseTypeArgument() {
+        Location location = location();
+        if (peekRead("?")) {
+            if (peekRead("extends")) {
+                return new Wildcard(location, Wildcard.Bounds.EXTENDS, parseReferenceTypeWithArgs());
+            } else if (peekRead("super")) {
+                return new Wildcard(location, Wildcard.Bounds.SUPER, parseReferenceTypeWithArgs());
+            } else {
+                return new Wildcard(location);
+            }
+        }
+        return parseReferenceTypeWithArgs();
     }
 
     private int parseBrackets() {
@@ -730,7 +836,7 @@ public class Parser {
 
     private ReferenceType parseSuperclass() {
         if (peekRead("extends")) {
-            return parseReferenceType();
+            return parseReferenceTypeWithArgs();
         }
         return null;
     }
@@ -739,7 +845,7 @@ public class Parser {
         List<ReferenceType> result = new ArrayList<>();
         if (peekRead("implements")) {
             do {
-                result.add(parseReferenceType());
+                result.add(parseReferenceTypeWithArgs());
             } while (peekRead(","));
         }
         return result;

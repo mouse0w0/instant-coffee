@@ -170,6 +170,141 @@ public class Decompiler {
         }
     }
 
+    private static List<TypeParameter> parseTypeParameters(StringScanner sc) {
+        List<TypeParameter> l = new ArrayList<>();
+
+        while (!sc.peekRead('>')) {
+            TypeParameter tp = new TypeParameter(Location.UNKNOWN);
+            // Parse parameter name
+            int startPos = sc.pos();
+            while (sc.hasNext() && sc.peek() != ':') {
+                sc.next();
+            }
+            tp.name = sc.substring(startPos, sc.pos());
+
+            // Parse parameter bounds
+            if (sc.peekRead(':')) {
+                // Parse superclass bound
+                if (sc.peek() != ':') {
+                    tp.bounds.add(parseReferenceTypeSignature(sc));
+                } else {
+                    tp.isInterfaceBounds = true;
+                }
+
+                // Parse interface bounds
+                while (sc.peekRead(':')) {
+                    tp.bounds.add(parseReferenceTypeSignature(sc));
+                }
+            }
+
+            if (tp.bounds.size() == 1 && ReferenceType.isJavaLangObject(tp.bounds.get(0))) {
+                tp.bounds.clear();
+            }
+            l.add(tp);
+        }
+        return l;
+    }
+
+    private static Type parseTypeSignature(String signature) {
+        return parseTypeSignature(new StringScanner(signature));
+    }
+
+    private static Type parseTypeSignature(StringScanner sc) {
+        switch (sc.peek()) {
+            case 'V':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.VOID);
+            case 'Z':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BOOLEAN);
+            case 'C':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.CHAR);
+            case 'B':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.BYTE);
+            case 'S':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.SHORT);
+            case 'I':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.INT);
+            case 'F':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.FLOAT);
+            case 'J':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.LONG);
+            case 'D':
+                sc.read();
+                return new PrimitiveType(Location.UNKNOWN, Primitive.DOUBLE);
+            case '[':
+                sc.read();
+                return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
+            case 'L':
+            case 'T':
+                return parseReferenceTypeSignature(sc);
+            case '(':
+                throw new IllegalArgumentException("Type signature does not support method signature");
+            default:
+                throw new IllegalArgumentException("Invalid type signature with unexpected character '" + sc.peek() + "' at position " + sc.pos());
+        }
+    }
+
+    private static ReferenceType parseReferenceTypeSignature(StringScanner sc) {
+        sc.next(); // Skip 'L' or 'T'
+
+        List<String> identifiers = new ArrayList<>();
+        int prev = sc.pos();
+        while (sc.hasNext()) {
+            switch (sc.peek()) {
+                case '<':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    sc.next(); // Skip '<'
+                    List<TypeArgument> typeArguments = parseTypeArguments(sc);
+                    sc.next(); // Skip ';'
+                    return new ReferenceType(Location.UNKNOWN, identifiers, typeArguments);
+                case ';':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    sc.next(); // Skip ';'
+                    return new ReferenceType(Location.UNKNOWN, identifiers);
+                case '/':
+                    identifiers.add(sc.substring(prev, sc.pos()));
+                    sc.next();
+                    prev = sc.pos();
+                    break;
+                default:
+                    sc.next();
+                    break;
+            }
+        }
+        throw new IllegalArgumentException("Invalid reference type signature");
+    }
+
+    private static List<TypeArgument> parseTypeArguments(StringScanner sc) {
+        List<TypeArgument> l = new ArrayList<>();
+        while (!sc.peekRead('>')) {
+            l.add(parseTypeArgument(sc));
+        }
+        return l;
+    }
+
+    private static TypeArgument parseTypeArgument(StringScanner sc) {
+        switch (sc.peek()) {
+            case '*':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN);
+            case '+':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceTypeSignature(sc));
+            case '-':
+                sc.next();
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceTypeSignature(sc));
+            default:
+                return parseReferenceTypeSignature(sc);
+        }
+    }
+
     private static ReferenceType parseInternal(String internalName) {
         return parseInternal(internalName, 0, internalName.length());
     }
@@ -391,9 +526,24 @@ public class Decompiler {
             cd.version = parseVersion(version);
             cd.modifiers = parseClassModifiers(access);
             cd.identifiers = parseIdentifiers(name);
-            cd.superclass = "java/lang/Object".equals(superName) ? null : parseInternal(superName);
-            for (String inte : interfaces) {
-                cd.interfaces.add(parseInternal(inte));
+            if (signature == null) {
+                cd.superclass = parseInternal(superName);
+                for (String inte : interfaces) {
+                    cd.interfaces.add(parseInternal(inte));
+                }
+            } else {
+                parseClassSignature(signature, cd);
+            }
+        }
+
+        private void parseClassSignature(String signature, ClassDeclaration cd) {
+            StringScanner sc = new StringScanner(signature);
+            if (sc.peekRead('<')) {
+                cd.typeParameters = parseTypeParameters(sc);
+            }
+            cd.superclass = parseReferenceTypeSignature(sc);
+            while (sc.hasNext()) {
+                cd.interfaces.add(parseReferenceTypeSignature(sc));
             }
         }
 
@@ -490,7 +640,7 @@ public class Decompiler {
         public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
             FieldDeclaration fd = new FieldDeclaration(Location.UNKNOWN);
             fd.modifiers = parseFieldModifiers(access);
-            fd.type = parseType(descriptor);
+            fd.type = signature != null ? parseTypeSignature(signature) : parseType(descriptor);
             fd.name = name;
             fd.value = parseValue(value);
             cd.fields.add(fd);
@@ -502,15 +652,34 @@ public class Decompiler {
             MethodDeclaration md = new MethodDeclaration(Location.UNKNOWN);
             md.modifiers = parseMethodModifiers(access);
             md.name = name;
-            md.parameterTypes = parseParameterTypes(descriptor);
-            md.returnType = parseReturnType(descriptor);
-            if (exceptions != null) {
-                for (String exception : exceptions) {
-                    md.exceptionTypes.add(parseInternal(exception));
+            if (signature == null) {
+                md.parameterTypes = parseParameterTypes(descriptor);
+                md.returnType = parseReturnType(descriptor);
+                if (exceptions != null) {
+                    for (String exception : exceptions) {
+                        md.exceptionTypes.add(parseInternal(exception));
+                    }
                 }
+            } else {
+                parseMethodSignature(signature, md);
             }
             cd.methods.add(md);
             return new MyMethodVisitor(md);
+        }
+
+        private void parseMethodSignature(String signature, MethodDeclaration md) {
+            StringScanner sc = new StringScanner(signature);
+            if (sc.peekRead('<')) {
+                md.typeParameters = parseTypeParameters(sc);
+            }
+            sc.next(); // Skip '('
+            while (!sc.peekRead(')')) {
+                md.parameterTypes.add(parseTypeSignature(sc));
+            }
+            md.returnType = parseTypeSignature(sc);
+            while (sc.peekRead('^')) {
+                md.exceptionTypes.add(parseReferenceTypeSignature(sc));
+            }
         }
 
         @Override
@@ -798,7 +967,7 @@ public class Decompiler {
             statements.add(new LocalVariable(
                     Location.UNKNOWN,
                     name,
-                    parseType(descriptor),
+                    signature != null ? parseTypeSignature(signature) : parseType(descriptor),
                     getLabel(start).name,
                     getLabel(end).name,
                     parseIntegerLiteral(index)));

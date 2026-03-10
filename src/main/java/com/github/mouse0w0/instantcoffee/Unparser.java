@@ -85,6 +85,7 @@ public class Unparser {
         push();
         unparseModifiers(cd.modifiers, pw);
         unparseIdentifiers(cd.identifiers, pw);
+        unparseTypeParameters(cd.typeParameters, pw);
         unparseSuperclass(cd.superclass, pw);
         unparseInterfaces(cd.interfaces, pw);
         pw.append(" {").println();
@@ -122,8 +123,20 @@ public class Unparser {
         }
     }
 
+    private void unparseTypeParameters(List<TypeParameter> typeParameters, PrintWriter pw) {
+        if (typeParameters.isEmpty()) return;
+        pw.append("<");
+        Iterator<TypeParameter> it = typeParameters.iterator();
+        pw.append(it.next().toString());
+        while (it.hasNext()) {
+            pw.append(", ").append(it.next().toString());
+        }
+        pw.append(">");
+    }
+
     private void unparseSuperclass(ReferenceType superclass, PrintWriter pw) {
         if (superclass == null) return;
+        if (ReferenceType.isJavaLangObject(superclass)) return;
         pw.append(" extends ").append(superclass.toString());
     }
 
@@ -260,8 +273,12 @@ public class Unparser {
         } else {
             appendIndent(pw);
             unparseModifiers(md.modifiers, pw);
+            unparseTypeParameters(md.typeParameters, pw);
+            if (!md.typeParameters.isEmpty()) {
+                pw.append(" ");
+            }
             if ("<init>".equals(md.name)) {
-                pw.append("<init>");
+                pw.append("constructor");
             } else {
                 pw.append(md.returnType.toString()).append(" ").append(md.name);
             }
@@ -270,11 +287,11 @@ public class Unparser {
             pw.append(")");
             unparseMethodExceptions(md.exceptionTypes, pw);
             unparseMethodDefaultValue(md.defaultValue, pw);
-        }
 
-        if (hasModifier(md.modifiers, "abstract")) {
-            pw.println();
-            return;
+            if (hasModifier(md.modifiers, "abstract")) {
+                pw.println();
+                return;
+            }
         }
 
         pw.append(" {").println();

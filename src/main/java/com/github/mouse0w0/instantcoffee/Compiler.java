@@ -1,11 +1,12 @@
 package com.github.mouse0w0.instantcoffee;
 
 import com.github.mouse0w0.instantcoffee.model.*;
+import com.github.mouse0w0.instantcoffee.model.ConstantDynamic;
+import com.github.mouse0w0.instantcoffee.model.Handle;
+import com.github.mouse0w0.instantcoffee.model.Type;
 import com.github.mouse0w0.instantcoffee.model.statement.*;
-import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import com.github.mouse0w0.instantcoffee.model.statement.Label;
+import org.objectweb.asm.*;
 
 import java.util.*;
 
@@ -18,25 +19,28 @@ public class Compiler {
     }
 
     public ClassFile compile(ClassDeclaration cd) {
-        return compile(cd, new ClassFile());
+        ClassCompiler compiler = new ClassCompiler();
+        compileClass(cd, compiler);
+        return compiler.toClassFile();
     }
 
-    public ClassFile compile(ClassDeclaration cd, ClassFile cf) {
+    private void compileClass(ClassDeclaration cd, ClassVisitor cv) {
+        ClassContext cc = new ClassContext(cd);
         int version = getVersion(cd.version);
         int access = getClassAccess(cd.modifiers);
         String name = getInternalName2(cd.identifiers);
+        String signature = needClassSignature(cd) ? getClassSignature(cd, cc) : null;
         String superclass = getSuperclass(cd.superclass);
         String[] interfaces = getInterfaces(cd.interfaces);
-        cf.visit(version, access, name, null, superclass, interfaces); // TODO: signature
-        compileSource(cd.source, cf);
-        compileNestHost(cd.nestHost, cf);
-        compileNestMembers(cd.nestMembers, cf);
-        compileAnnotations(cd.annotations, cf);
-        compileInnerClasses(cd.innerClasses, cf);
-        compileFields(cd.fields, cf);
-        compileMethods(cd.methods, cf);
-        cf.visitEnd();
-        return cf;
+        cv.visit(version, access, name, signature, superclass, interfaces);
+        compileSource(cd.source, cv);
+        compileNestHost(cd.nestHost, cv);
+        compileNestMembers(cd.nestMembers, cv);
+        compileAnnotations(cd.annotations, cv);
+        compileInnerClasses(cd.innerClasses, cv);
+        compileFields(cd.fields, cv, cc);
+        compileMethods(cd.methods, cv, cc);
+        cv.visitEnd();
     }
 
     private String getInternalName(Type type) {
@@ -70,10 +74,6 @@ public class Compiler {
         }
     }
 
-    private String getDescriptor(List<String> identifiers) {
-        return "L" + getInternalName2(identifiers) + ";";
-    }
-
     private String getDescriptor2(PrimitiveType type) {
         switch (type.primitive) {
             case VOID:
@@ -104,7 +104,7 @@ public class Compiler {
     }
 
     private String getDescriptor2(ReferenceType type) {
-        return "L" + getInternalName2(type.identifiers) + ";";
+        return "L" + getInternalName2(type) + ";";
     }
 
     private String getMethodDescriptor(MethodType type) {
@@ -119,6 +119,14 @@ public class Compiler {
         return stringBuilder.append(")").append(getDescriptor(returnType)).toString();
     }
 
+    private String getMethodDescriptor(List<Type> parameterTypes, Type returnType, MethodContext mc) {
+        StringBuilder stringBuilder = new StringBuilder("(");
+        for (Type parameterType : parameterTypes) {
+            stringBuilder.append(getDescriptor(mc.getRawType(parameterType)));
+        }
+        return stringBuilder.append(")").append(getDescriptor(mc.getRawType(returnType))).toString();
+    }
+
     private String getHandleDescriptor(HandleType type) {
         if (type instanceof Type) {
             return getDescriptor((Type) type);
@@ -126,6 +134,157 @@ public class Compiler {
             return getMethodDescriptor((MethodType) type);
         } else {
             throw new InternalCompileException(type.getClass().getName());
+        }
+    }
+
+    private boolean needClassSignature(ClassDeclaration cd) {
+        if (!cd.typeParameters.isEmpty()) return true;
+        if (cd.superclass != null && !cd.superclass.typeArguments.isEmpty()) return true;
+        for (ReferenceType inte : cd.interfaces) {
+            if (!inte.typeArguments.isEmpty()) return true;
+        }
+        return false;
+    }
+
+    private String getClassSignature(ClassDeclaration cd, ClassContext cc) {
+        StringBuilder sb = new StringBuilder();
+
+        buildTypeParameters(cd.typeParameters, cc, sb);
+
+        if (cd.superclass != null) {
+            sb.append(getTypeSignature2(cd.superclass, cc));
+        } else {
+            sb.append("Ljava/lang/Object;");
+        }
+
+        for (ReferenceType inte : cd.interfaces) {
+            sb.append(getTypeSignature2(inte, cc));
+        }
+        return sb.toString();
+    }
+
+    private boolean needMethodSignature(MethodDeclaration md, MethodContext mc) {
+        if (!md.typeParameters.isEmpty()) return true;
+        if (needTypeSignature(md.returnType, mc)) return true;
+        for (Type parameterType : md.parameterTypes) {
+            if (needTypeSignature(parameterType, mc)) {
+                return true;
+            }
+        }
+        for (ReferenceType exceptionType : md.exceptionTypes) {
+            if (needTypeSignature(exceptionType, mc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String getMethodSignature(MethodDeclaration md, MethodContext mc) {
+        StringBuilder sb = new StringBuilder();
+
+        buildTypeParameters(md.typeParameters, mc, sb);
+
+        sb.append("(");
+        for (Type parameterType : md.parameterTypes) {
+            sb.append(getTypeSignature(parameterType, mc));
+        }
+        sb.append(")");
+
+        sb.append(getTypeSignature(md.returnType, mc));
+
+        for (ReferenceType exceptionType : md.exceptionTypes) {
+            sb.append("^").append(getTypeSignature(exceptionType, mc));
+        }
+
+        return sb.toString();
+    }
+
+    private void buildTypeParameters(List<TypeParameter> typeParameters, Context cc, StringBuilder sb) {
+        if (!typeParameters.isEmpty()) {
+            sb.append("<");
+            for (TypeParameter tp : typeParameters) {
+                sb.append(tp.name);
+                if (tp.bounds.isEmpty()) {
+                    sb.append(":Ljava/lang/Object;");
+                } else {
+                    if (tp.isInterfaceBounds) {
+                        sb.append(":");
+                    }
+                    for (ReferenceType bound : tp.bounds) {
+                        sb.append(":").append(getTypeSignature2(bound, cc));
+                    }
+                }
+            }
+            sb.append(">");
+        }
+    }
+
+    private boolean needTypeSignature(Type type, Context cc) {
+        if (type instanceof ReferenceType) {
+            ReferenceType referenceType = (ReferenceType) type;
+            return cc.isTypeVariable(referenceType) || !referenceType.typeArguments.isEmpty();
+        } else if (type instanceof ArrayType) {
+            return needTypeSignature(((ArrayType) type).componentType, cc);
+        } else {
+            return false;
+        }
+    }
+
+    private String getTypeSignature(Type type, Context cc) {
+        if (type instanceof PrimitiveType) {
+            return getTypeSignature2((PrimitiveType) type);
+        } else if (type instanceof ArrayType) {
+            return getTypeSignature2((ArrayType) type, cc);
+        } else if (type instanceof ReferenceType) {
+            return getTypeSignature2((ReferenceType) type, cc);
+        } else {
+            throw new InternalCompileException(type.getClass().getName());
+        }
+    }
+
+    private String getTypeSignature2(PrimitiveType type) {
+        return getDescriptor2(type);
+    }
+
+    private String getTypeSignature2(ArrayType type, Context cc) {
+        return "[" + getTypeSignature(type.componentType, cc);
+    }
+
+    private String getTypeSignature2(ReferenceType type, Context cc) {
+        if (cc.isTypeVariable(type)) {
+            return "T" + type.identifiers.get(0) + ";";
+        } else {
+            StringBuilder sb = new StringBuilder();
+            sb.append("L").append(getInternalName2(type));
+            if (!type.typeArguments.isEmpty()) {
+                sb.append("<");
+                for (TypeArgument arg : type.typeArguments) {
+                    sb.append(getTypeArgumentSignature(arg, cc));
+                }
+                sb.append(">");
+            }
+            sb.append(";");
+            return sb.toString();
+        }
+    }
+
+    private String getTypeArgumentSignature(TypeArgument typeArgument, Context cc) {
+        if (typeArgument instanceof ReferenceType) {
+            return getTypeSignature2((ReferenceType) typeArgument, cc);
+        } else if (typeArgument instanceof Wildcard) {
+            return getTypeSignature2((Wildcard) typeArgument, cc);
+        } else {
+            throw new InternalCompileException(typeArgument.getClass().getName());
+        }
+    }
+
+    private String getTypeSignature2(Wildcard wildcard, Context cc) {
+        if (wildcard.bounds == Wildcard.Bounds.EXTENDS) {
+            return "+" + getTypeSignature2(wildcard.referenceType, cc);
+        } else if (wildcard.bounds == Wildcard.Bounds.SUPER) {
+            return "-" + getTypeSignature2(wildcard.referenceType, cc);
+        } else {
+            return "*";
         }
     }
 
@@ -167,35 +326,36 @@ public class Compiler {
     }
 
     private String getSuperclass(ReferenceType superclass) {
-        return superclass != null ? getInternalName2(superclass.identifiers) : "java/lang/Object";
+        return superclass != null ? getInternalName2(superclass) : "java/lang/Object";
     }
 
     private String[] getInterfaces(List<ReferenceType> interfaces) {
         if (interfaces.isEmpty()) return null;
         List<String> l = new ArrayList<>();
         for (ReferenceType inte : interfaces) {
-            l.add(getInternalName2(inte.identifiers));
+            l.add(getInternalName2(inte));
         }
         return l.toArray(EMPTY_STRING_ARRAY);
     }
-    private void compileSource(StringLiteral source, ClassFile cf) {
+
+    private void compileSource(StringLiteral source, ClassVisitor cv) {
         if (source == null) return;
-        cf.visitSource(getConstantValue2(source), null);
+        cv.visitSource(getConstantValue2(source), null);
     }
 
-    private void compileNestHost(ReferenceType nestHost, ClassFile cf) {
+    private void compileNestHost(ReferenceType nestHost, ClassVisitor cv) {
         if (nestHost == null) return;
-        cf.visitNestHost(getInternalName2(nestHost));
+        cv.visitNestHost(getInternalName2(nestHost));
     }
 
-    private void compileNestMembers(List<ReferenceType> nestMembers, ClassFile cf) {
+    private void compileNestMembers(List<ReferenceType> nestMembers, ClassVisitor cv) {
         if (nestMembers.isEmpty()) return;
         for (ReferenceType nestMember : nestMembers) {
-            cf.visitNestMember(getInternalName2(nestMember));
+            cv.visitNestMember(getInternalName2(nestMember));
         }
     }
 
-    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassFile cf) {
+    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassVisitor cv) {
         for (InnerClassDeclaration innerClass : innerClasses) {
             String name = getInternalName2(innerClass.name);
             String innerName = innerClass.innerName;
@@ -204,14 +364,14 @@ public class Compiler {
             // 根据类型调整访问标志
             switch (innerClass.type) {
                 case ANONYMOUS:
-                    cf.visitInnerClass(name, null, null, access);
+                    cv.visitInnerClass(name, null, null, access);
                     break;
                 case LOCAL:
-                    cf.visitInnerClass(name, null, innerName, access);
+                    cv.visitInnerClass(name, null, innerName, access);
                     break;
                 case MEMBER_OR_STATIC:
                     String outerName = name.substring(0, name.length() - innerName.length() - 1);
-                    cf.visitInnerClass(name, outerName, innerName, access);
+                    cv.visitInnerClass(name, outerName, innerName, access);
                     break;
             }
         }
@@ -248,18 +408,19 @@ public class Compiler {
         return access;
     }
 
-    private void compileFields(List<FieldDeclaration> fields, ClassFile cf) {
+    private void compileFields(List<FieldDeclaration> fields, ClassVisitor cv, ClassContext cc) {
         for (FieldDeclaration field : fields) {
-            compileField(field, cf);
+            compileField(field, cv, cc);
         }
     }
 
-    private void compileField(FieldDeclaration field, ClassFile cf) {
+    private void compileField(FieldDeclaration field, ClassVisitor cv, ClassContext cc) {
         int access = getFieldAccess(field.modifiers);
         String name = field.name;
-        String descriptor = getDescriptor(field.type);
+        String descriptor = getDescriptor(cc.getRawType(field.type));
+        String signature = needTypeSignature(field.type, cc) ? getTypeSignature(field.type, cc) : null;
         Object value = field.value != null ? getConstantValue(field.value) : null;
-        FieldVisitor fv = cf.visitField(access, name, descriptor, null, value); // TODO: signature
+        FieldVisitor fv = cv.visitField(access, name, descriptor, signature, value);
 
         compileAnnotations(field.annotations, fv);
         fv.visitEnd();
@@ -296,34 +457,28 @@ public class Compiler {
         return access;
     }
 
-    private void compileMethods(List<MethodDeclaration> methods, ClassFile cf) {
+    private void compileMethods(List<MethodDeclaration> methods, ClassVisitor cv, ClassContext cc) {
         for (MethodDeclaration method : methods) {
-            compileMethod(method, cf);
+            compileMethod(method, cv, cc);
         }
     }
 
-    private String[] getMethodExceptions(List<ReferenceType> types) {
-        List<String> l = new ArrayList<>();
-        for (ReferenceType type : types) {
-            l.add(getInternalName2(type));
-        }
-        return l.toArray(EMPTY_STRING_ARRAY);
-    }
-
-    private void compileMethod(MethodDeclaration method, ClassFile cf) {
+    private void compileMethod(MethodDeclaration method, ClassVisitor cv, ClassContext cc) {
+        MethodContext mc = new MethodContext(method, cc);
         int access = getMethodAccess(method.modifiers);
         String name = method.name;
-        String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
+        String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType, mc);
+        String signature = needMethodSignature(method, mc) ? getMethodSignature(method, mc) : null;
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
-        MethodVisitor mv = cf.visitMethod(access, name, descriptor, null, exceptions); // TODO: signature
+        MethodVisitor mv = cv.visitMethod(access, name, descriptor, signature, exceptions);
 
         compileAnnotations(method.annotations, mv);
         compileMethodDefaultValue(method.defaultValue, mv);
 
         if (method.body != null) {
             mv.visitCode();
-            compileBlock(method.body, null, mv);
+            compileBlock(method.body, null, mv, mc);
             mv.visitMaxs(0, 0);
         }
 
@@ -367,6 +522,14 @@ public class Compiler {
         return access;
     }
 
+    private String[] getMethodExceptions(List<ReferenceType> types) {
+        List<String> l = new ArrayList<>();
+        for (ReferenceType type : types) {
+            l.add(getInternalName2(type));
+        }
+        return l.toArray(EMPTY_STRING_ARRAY);
+    }
+
     private void compileMethodDefaultValue(AnnotationValue defaultValue, MethodVisitor mv) {
         if (defaultValue != null) {
             compileAnnotationValue(null, defaultValue, mv.visitAnnotationDefault());
@@ -387,7 +550,7 @@ public class Compiler {
         return new LabelMap(parent, map);
     }
 
-    private void compileStatement(Statement statement, LabelMap labelMap, MethodVisitor mv) {
+    private void compileStatement(Statement statement, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
         if (statement instanceof Insn) {
             compileInsn((Insn) statement, mv);
         } else if (statement instanceof IntInsn) {
@@ -417,11 +580,11 @@ public class Compiler {
         } else if (statement instanceof MultiANewArrayInsn) {
             compileMultiANewArrayInsn((MultiANewArrayInsn) statement, mv);
         } else if (statement instanceof Block) {
-            compileBlock((Block) statement, labelMap, mv);
+            compileBlock((Block) statement, labelMap, mv, mc);
         } else if (statement instanceof LineNumber) {
             compileLineNumber((LineNumber) statement, labelMap, mv);
         } else if (statement instanceof LocalVariable) {
-            compileLocalVariable((LocalVariable) statement, labelMap, mv);
+            compileLocalVariable((LocalVariable) statement, labelMap, mv, mc);
         } else if (statement instanceof TryCatchBlock) {
             compileTryCatchBlock((TryCatchBlock) statement, labelMap, mv);
         } else {
@@ -573,11 +736,11 @@ public class Compiler {
         mv.visitMultiANewArrayInsn(getDescriptor(insn.type), getConstantValue2(insn.numDimensions).intValue());
     }
 
-    private void compileBlock(Block block, LabelMap parentLabelMap, MethodVisitor mv) {
+    private void compileBlock(Block block, LabelMap parentLabelMap, MethodVisitor mv, MethodContext mc) {
         List<Statement> statements = block.statements;
         LabelMap labelMap = buildLabelMap(parentLabelMap, statements);
         for (Statement statement : statements) {
-            compileStatement(statement, labelMap, mv);
+            compileStatement(statement, labelMap, mv, mc);
         }
     }
 
@@ -589,7 +752,7 @@ public class Compiler {
         mv.visitLineNumber(getConstantValue2(lineNumber.line).intValue(), label);
     }
 
-    private void compileLocalVariable(LocalVariable localVariable, LabelMap labelMap, MethodVisitor mv) {
+    private void compileLocalVariable(LocalVariable localVariable, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
         org.objectweb.asm.Label start = labelMap.get(localVariable.start);
         if (start == null) {
             throw new CompileException("Undefined start label: " + localVariable.start, localVariable.getLocation());
@@ -600,8 +763,8 @@ public class Compiler {
         }
         mv.visitLocalVariable(
                 localVariable.name,
-                getDescriptor(localVariable.type),
-                null, // TODO: signature
+                getDescriptor(mc.getRawType(localVariable.type)),
+                needTypeSignature(localVariable.type, mc) ? getTypeSignature(localVariable.type, mc) : null,
                 start,
                 end,
                 getConstantValue2(localVariable.index).intValue());
@@ -627,9 +790,9 @@ public class Compiler {
                 tryCatchBlock.type != null ? getInternalName2(tryCatchBlock.type) : null);
     }
 
-    private void compileAnnotations(List<Annotation> annotations, ClassFile cf) {
+    private void compileAnnotations(List<Annotation> annotations, ClassVisitor cv) {
         for (Annotation annotation : annotations) {
-            compileAnnotation(annotation, cf.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
+            compileAnnotation(annotation, cv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
