@@ -478,7 +478,7 @@ public class Compiler {
 
         if (method.body != null) {
             mv.visitCode();
-            compileBlock(method.body, null, mv, mc);
+            compileBlock(method.body, mv, mc, null);
             mv.visitMaxs(0, 0);
         }
 
@@ -550,7 +550,7 @@ public class Compiler {
         return new LabelMap(parent, map);
     }
 
-    private void compileStatement(Statement statement, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
+    private void compileStatement(Statement statement, MethodVisitor mv, MethodContext mc, LabelMap labelMap) {
         if (statement instanceof Insn) {
             compileInsn((Insn) statement, mv);
         } else if (statement instanceof IntInsn) {
@@ -566,27 +566,27 @@ public class Compiler {
         } else if (statement instanceof InvokeDynamicInsn) {
             compileInvokeDynamicInsn((InvokeDynamicInsn) statement, mv);
         } else if (statement instanceof JumpInsn) {
-            compileJumpInsn((JumpInsn) statement, labelMap, mv);
+            compileJumpInsn((JumpInsn) statement, mv, labelMap);
         } else if (statement instanceof Label) {
-            compileLabelInsn((Label) statement, labelMap, mv);
+            compileLabelInsn((Label) statement, mv, labelMap);
         } else if (statement instanceof LdcInsn) {
             compileLdcInsn((LdcInsn) statement, mv);
         } else if (statement instanceof IincInsn) {
             compileIincInsn((IincInsn) statement, mv);
         } else if (statement instanceof SwitchInsn) {
-            compileSwitchInsn((SwitchInsn) statement, labelMap, mv);
+            compileSwitchInsn((SwitchInsn) statement, mv, labelMap);
         } else if (statement instanceof NewArrayInsn) {
             compileNewArrayInsn((NewArrayInsn) statement, mv);
         } else if (statement instanceof MultiANewArrayInsn) {
             compileMultiANewArrayInsn((MultiANewArrayInsn) statement, mv);
         } else if (statement instanceof Block) {
-            compileBlock((Block) statement, labelMap, mv, mc);
+            compileBlock((Block) statement, mv, mc, labelMap);
         } else if (statement instanceof LineNumber) {
-            compileLineNumber((LineNumber) statement, labelMap, mv);
+            compileLineNumber((LineNumber) statement, mv, labelMap);
         } else if (statement instanceof LocalVariable) {
-            compileLocalVariable((LocalVariable) statement, labelMap, mv, mc);
+            compileLocalVariable((LocalVariable) statement, mv, mc, labelMap);
         } else if (statement instanceof TryCatchBlock) {
-            compileTryCatchBlock((TryCatchBlock) statement, labelMap, mv);
+            compileTryCatchBlock((TryCatchBlock) statement, mv, labelMap);
         } else {
             throw new InternalCompileException(statement.getClass().getName());
         }
@@ -629,7 +629,7 @@ public class Compiler {
         mv.visitInvokeDynamicInsn(name, descriptor, bootstrapMethod, bootstrapMethodArguments);
     }
 
-    private void compileJumpInsn(JumpInsn insn, LabelMap labelMap, MethodVisitor mv) {
+    private void compileJumpInsn(JumpInsn insn, MethodVisitor mv, LabelMap labelMap) {
         org.objectweb.asm.Label label = labelMap.get(insn.label);
         if (label == null) {
             throw new CompileException("Undefined label: " + insn.label, insn.getLocation());
@@ -637,7 +637,7 @@ public class Compiler {
         mv.visitJumpInsn(getOpcode(insn.opcode), label);
     }
 
-    private void compileLabelInsn(Label label, LabelMap labelMap, MethodVisitor mv) {
+    private void compileLabelInsn(Label label, MethodVisitor mv, LabelMap labelMap) {
         mv.visitLabel(labelMap.get(label.name));
     }
 
@@ -672,7 +672,7 @@ public class Compiler {
         mv.visitIincInsn(getConstantValue2(insn.var).intValue(), getConstantValue2(insn.increment).intValue());
     }
 
-    private void compileSwitchInsn(SwitchInsn insn, LabelMap labelMap, MethodVisitor mv) {
+    private void compileSwitchInsn(SwitchInsn insn, MethodVisitor mv, LabelMap labelMap) {
         TreeMap<Integer, org.objectweb.asm.Label> keyLabelMap = new TreeMap<>();
         for (SwitchCase cas : insn.cases) {
             if (keyLabelMap.putIfAbsent(getConstantValue2(cas.key).intValue(), labelMap.get(cas.label)) != null) {
@@ -736,15 +736,15 @@ public class Compiler {
         mv.visitMultiANewArrayInsn(getDescriptor(insn.type), getConstantValue2(insn.numDimensions).intValue());
     }
 
-    private void compileBlock(Block block, LabelMap parentLabelMap, MethodVisitor mv, MethodContext mc) {
+    private void compileBlock(Block block, MethodVisitor mv, MethodContext mc, LabelMap parentLabelMap) {
         List<Statement> statements = block.statements;
         LabelMap labelMap = buildLabelMap(parentLabelMap, statements);
         for (Statement statement : statements) {
-            compileStatement(statement, labelMap, mv, mc);
+            compileStatement(statement, mv, mc, labelMap);
         }
     }
 
-    private void compileLineNumber(LineNumber lineNumber, LabelMap labelMap, MethodVisitor mv) {
+    private void compileLineNumber(LineNumber lineNumber, MethodVisitor mv, LabelMap labelMap) {
         org.objectweb.asm.Label label = labelMap.get(lineNumber.label);
         if (label == null) {
             throw new CompileException("Undefined label: " + lineNumber.label, lineNumber.getLocation());
@@ -752,7 +752,7 @@ public class Compiler {
         mv.visitLineNumber(getConstantValue2(lineNumber.line).intValue(), label);
     }
 
-    private void compileLocalVariable(LocalVariable localVariable, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
+    private void compileLocalVariable(LocalVariable localVariable, MethodVisitor mv, MethodContext mc, LabelMap labelMap) {
         org.objectweb.asm.Label start = labelMap.get(localVariable.start);
         if (start == null) {
             throw new CompileException("Undefined start label: " + localVariable.start, localVariable.getLocation());
@@ -770,7 +770,7 @@ public class Compiler {
                 getConstantValue2(localVariable.index).intValue());
     }
 
-    private void compileTryCatchBlock(TryCatchBlock tryCatchBlock, LabelMap labelMap, MethodVisitor mv) {
+    private void compileTryCatchBlock(TryCatchBlock tryCatchBlock, MethodVisitor mv, LabelMap labelMap) {
         org.objectweb.asm.Label start = labelMap.get(tryCatchBlock.start);
         if (start == null) {
             throw new CompileException("Undefined start label: " + tryCatchBlock.start, tryCatchBlock.getLocation());
