@@ -23,13 +23,12 @@ public class Wildcard extends Located implements TypeArgument {
 
     @Override
     public String toString() {
-        switch (bounds) {
-            case EXTENDS:
-                return "? extends " + referenceType;
-            case SUPER:
-                return "? super " + referenceType;
-            default:
-                return "?";
+        if (bounds == Bounds.EXTENDS) {
+            return "? extends " + referenceType;
+        } else if (bounds == Bounds.SUPER) {
+            return "? super " + referenceType;
+        } else {
+            return "?";
         }
     }
 }

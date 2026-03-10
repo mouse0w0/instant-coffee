@@ -119,6 +119,14 @@ public class Compiler {
         return stringBuilder.append(")").append(getDescriptor(returnType)).toString();
     }
 
+    private String getMethodDescriptor(List<Type> parameterTypes, Type returnType, MethodContext mc) {
+        StringBuilder stringBuilder = new StringBuilder("(");
+        for (Type parameterType : parameterTypes) {
+            stringBuilder.append(getDescriptor(mc.getRawType(parameterType)));
+        }
+        return stringBuilder.append(")").append(getDescriptor(mc.getRawType(returnType))).toString();
+    }
+
     private String getHandleDescriptor(HandleType type) {
         if (type instanceof Type) {
             return getDescriptor((Type) type);
@@ -196,11 +204,15 @@ public class Compiler {
             sb.append("<");
             for (TypeParameter tp : typeParameters) {
                 sb.append(tp.name);
-                if (tp.isInterfaceBounds) {
-                    sb.append(":");
-                }
-                for (ReferenceType bound : tp.bounds) {
-                    sb.append(":").append(getTypeSignature2(bound, cc));
+                if (tp.bounds.isEmpty()) {
+                    sb.append(":Ljava/lang/Object;");
+                } else {
+                    if (tp.isInterfaceBounds) {
+                        sb.append(":");
+                    }
+                    for (ReferenceType bound : tp.bounds) {
+                        sb.append(":").append(getTypeSignature2(bound, cc));
+                    }
                 }
             }
             sb.append(">");
@@ -267,13 +279,12 @@ public class Compiler {
     }
 
     private String getTypeSignature2(Wildcard wildcard, Context cc) {
-        switch (wildcard.bounds) {
-            case EXTENDS:
-                return "+" + getTypeSignature2(wildcard.referenceType, cc);
-            case SUPER:
-                return "-" + getTypeSignature2(wildcard.referenceType, cc);
-            default:
-                return "*";
+        if (wildcard.bounds == Wildcard.Bounds.EXTENDS) {
+            return "+" + getTypeSignature2(wildcard.referenceType, cc);
+        } else if (wildcard.bounds == Wildcard.Bounds.SUPER) {
+            return "-" + getTypeSignature2(wildcard.referenceType, cc);
+        } else {
+            return "*";
         }
     }
 
@@ -406,7 +417,7 @@ public class Compiler {
     private void compileField(FieldDeclaration field, ClassVisitor cv, ClassContext cc) {
         int access = getFieldAccess(field.modifiers);
         String name = field.name;
-        String descriptor = getDescriptor(field.type);
+        String descriptor = getDescriptor(cc.getRawType(field.type));
         String signature = needTypeSignature(field.type, cc) ? getTypeSignature(field.type, cc) : null;
         Object value = field.value != null ? getConstantValue(field.value) : null;
         FieldVisitor fv = cv.visitField(access, name, descriptor, signature, value);
@@ -456,7 +467,7 @@ public class Compiler {
         MethodContext mc = new MethodContext(method, cc);
         int access = getMethodAccess(method.modifiers);
         String name = method.name;
-        String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType);
+        String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType, mc);
         String signature = needMethodSignature(method, mc) ? getMethodSignature(method, mc) : null;
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
@@ -467,7 +478,7 @@ public class Compiler {
 
         if (method.body != null) {
             mv.visitCode();
-            compileBlock(method.body, null, mv);
+            compileBlock(method.body, null, mv, mc);
             mv.visitMaxs(0, 0);
         }
 
@@ -539,7 +550,7 @@ public class Compiler {
         return new LabelMap(parent, map);
     }
 
-    private void compileStatement(Statement statement, LabelMap labelMap, MethodVisitor mv) {
+    private void compileStatement(Statement statement, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
         if (statement instanceof Insn) {
             compileInsn((Insn) statement, mv);
         } else if (statement instanceof IntInsn) {
@@ -569,11 +580,11 @@ public class Compiler {
         } else if (statement instanceof MultiANewArrayInsn) {
             compileMultiANewArrayInsn((MultiANewArrayInsn) statement, mv);
         } else if (statement instanceof Block) {
-            compileBlock((Block) statement, labelMap, mv);
+            compileBlock((Block) statement, labelMap, mv, mc);
         } else if (statement instanceof LineNumber) {
             compileLineNumber((LineNumber) statement, labelMap, mv);
         } else if (statement instanceof LocalVariable) {
-            compileLocalVariable((LocalVariable) statement, labelMap, mv);
+            compileLocalVariable((LocalVariable) statement, labelMap, mv, mc);
         } else if (statement instanceof TryCatchBlock) {
             compileTryCatchBlock((TryCatchBlock) statement, labelMap, mv);
         } else {
@@ -725,11 +736,11 @@ public class Compiler {
         mv.visitMultiANewArrayInsn(getDescriptor(insn.type), getConstantValue2(insn.numDimensions).intValue());
     }
 
-    private void compileBlock(Block block, LabelMap parentLabelMap, MethodVisitor mv) {
+    private void compileBlock(Block block, LabelMap parentLabelMap, MethodVisitor mv, MethodContext mc) {
         List<Statement> statements = block.statements;
         LabelMap labelMap = buildLabelMap(parentLabelMap, statements);
         for (Statement statement : statements) {
-            compileStatement(statement, labelMap, mv);
+            compileStatement(statement, labelMap, mv, mc);
         }
     }
 
@@ -741,7 +752,7 @@ public class Compiler {
         mv.visitLineNumber(getConstantValue2(lineNumber.line).intValue(), label);
     }
 
-    private void compileLocalVariable(LocalVariable localVariable, LabelMap labelMap, MethodVisitor mv) {
+    private void compileLocalVariable(LocalVariable localVariable, LabelMap labelMap, MethodVisitor mv, MethodContext mc) {
         org.objectweb.asm.Label start = labelMap.get(localVariable.start);
         if (start == null) {
             throw new CompileException("Undefined start label: " + localVariable.start, localVariable.getLocation());
@@ -752,8 +763,8 @@ public class Compiler {
         }
         mv.visitLocalVariable(
                 localVariable.name,
-                getDescriptor(localVariable.type),
-                null, // TODO: signature
+                getDescriptor(mc.getRawType(localVariable.type)),
+                needTypeSignature(localVariable.type, mc) ? getTypeSignature(localVariable.type, mc) : null,
                 start,
                 end,
                 getConstantValue2(localVariable.index).intValue());

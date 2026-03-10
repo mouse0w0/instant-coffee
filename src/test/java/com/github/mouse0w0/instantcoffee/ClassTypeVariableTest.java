@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 public class ClassTypeVariableTest {
     @Test
     public void test() {
-        Utils.validate(ClassTypeVariable.class, true, false);
+        Utils.validate(ClassTypeVariable.class);
     }
 
     // signature <T:Ljava/lang/Object;U:Ljava/lang/Object;>Lcom/github/mouse0w0/instantcoffee/GenericClassDeclarationTest$A<TT;>;Lcom/github/mouse0w0/instantcoffee/GenericClassDeclarationTest$B<TU;>;

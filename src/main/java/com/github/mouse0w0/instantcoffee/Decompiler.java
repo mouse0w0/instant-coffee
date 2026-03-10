@@ -186,15 +186,19 @@ public class Decompiler {
             if (sc.peekRead(':')) {
                 // Parse superclass bound
                 if (sc.peek() != ':') {
-                    tp.bounds.add(parseReferenceType(sc));
+                    tp.bounds.add(parseReferenceTypeSignature(sc));
                 } else {
                     tp.isInterfaceBounds = true;
                 }
 
                 // Parse interface bounds
                 while (sc.peekRead(':')) {
-                    tp.bounds.add(parseReferenceType(sc));
+                    tp.bounds.add(parseReferenceTypeSignature(sc));
                 }
+            }
+
+            if (tp.bounds.size() == 1 && ReferenceType.isJavaLangObject(tp.bounds.get(0))) {
+                tp.bounds.clear();
             }
             l.add(tp);
         }
@@ -239,7 +243,7 @@ public class Decompiler {
                 return new ArrayType(Location.UNKNOWN, parseTypeSignature(sc));
             case 'L':
             case 'T':
-                return parseReferenceType(sc);
+                return parseReferenceTypeSignature(sc);
             case '(':
                 throw new IllegalArgumentException("Type signature does not support method signature");
             default:
@@ -247,7 +251,7 @@ public class Decompiler {
         }
     }
 
-    private static ReferenceType parseReferenceType(StringScanner sc) {
+    private static ReferenceType parseReferenceTypeSignature(StringScanner sc) {
         sc.next(); // Skip 'L' or 'T'
 
         List<String> identifiers = new ArrayList<>();
@@ -292,12 +296,12 @@ public class Decompiler {
                 return new Wildcard(Location.UNKNOWN);
             case '+':
                 sc.next();
-                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceType(sc));
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.EXTENDS, parseReferenceTypeSignature(sc));
             case '-':
                 sc.next();
-                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceType(sc));
+                return new Wildcard(Location.UNKNOWN, Wildcard.Bounds.SUPER, parseReferenceTypeSignature(sc));
             default:
-                return parseReferenceType(sc);
+                return parseReferenceTypeSignature(sc);
         }
     }
 
@@ -537,9 +541,9 @@ public class Decompiler {
             if (sc.peekRead('<')) {
                 cd.typeParameters = parseTypeParameters(sc);
             }
-            cd.superclass = parseReferenceType(sc);
+            cd.superclass = parseReferenceTypeSignature(sc);
             while (sc.hasNext()) {
-                cd.interfaces.add(parseReferenceType(sc));
+                cd.interfaces.add(parseReferenceTypeSignature(sc));
             }
         }
 
@@ -674,7 +678,7 @@ public class Decompiler {
             }
             md.returnType = parseTypeSignature(sc);
             while (sc.peekRead('^')) {
-                md.exceptionTypes.add(parseReferenceType(sc));
+                md.exceptionTypes.add(parseReferenceTypeSignature(sc));
             }
         }
 

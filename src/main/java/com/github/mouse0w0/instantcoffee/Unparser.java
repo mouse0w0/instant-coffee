@@ -136,7 +136,7 @@ public class Unparser {
 
     private void unparseSuperclass(ReferenceType superclass, PrintWriter pw) {
         if (superclass == null) return;
-        if (isJavaLangObject(superclass)) return;
+        if (ReferenceType.isJavaLangObject(superclass)) return;
         pw.append(" extends ").append(superclass.toString());
     }
 
@@ -274,8 +274,11 @@ public class Unparser {
             appendIndent(pw);
             unparseModifiers(md.modifiers, pw);
             unparseTypeParameters(md.typeParameters, pw);
+            if (!md.typeParameters.isEmpty()) {
+                pw.append(" ");
+            }
             if ("<init>".equals(md.name)) {
-                pw.append("<init>");
+                pw.append("constructor");
             } else {
                 pw.append(md.returnType.toString()).append(" ").append(md.name);
             }
@@ -284,11 +287,11 @@ public class Unparser {
             pw.append(")");
             unparseMethodExceptions(md.exceptionTypes, pw);
             unparseMethodDefaultValue(md.defaultValue, pw);
-        }
 
-        if (hasModifier(md.modifiers, "abstract")) {
-            pw.println();
-            return;
+            if (hasModifier(md.modifiers, "abstract")) {
+                pw.println();
+                return;
+            }
         }
 
         pw.append(" {").println();
@@ -557,11 +560,5 @@ public class Unparser {
             }
         }
         return false;
-    }
-
-    private boolean isJavaLangObject(ReferenceType type) {
-        return "java".equals(type.identifiers.get(0)) &&
-                "lang".equals(type.identifiers.get(1)) &&
-                "Object".equals(type.identifiers.get(2));
     }
 }

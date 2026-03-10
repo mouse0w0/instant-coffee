@@ -22,6 +22,13 @@ public class ReferenceType extends Located implements Type, TypeArgument {
         this.typeArguments = typeArguments;
     }
 
+    public static boolean isJavaLangObject(ReferenceType type) {
+        return type.identifiers.size() == 3 &&
+                "java".equals(type.identifiers.get(0)) &&
+                "lang".equals(type.identifiers.get(1)) &&
+                "Object".equals(type.identifiers.get(2));
+    }
+
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();

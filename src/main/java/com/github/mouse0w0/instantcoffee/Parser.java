@@ -103,7 +103,7 @@ public class Parser {
     private List<ReferenceType> parseBounds() {
         List<ReferenceType> bounds = new ArrayList<>();
         do {
-            bounds.add(parseReferenceType());
+            bounds.add(parseReferenceTypeWithArgs());
         } while (peekRead("&"));
         return bounds;
     }
@@ -151,15 +151,16 @@ public class Parser {
             return;
         }
 
-        if (peekRead("<")) {
-            read("init");
-            read(">");
+        List<TypeParameter> typeParameters = parseTypeParameters();
+
+        if (peekRead("constructor")) {
             Location location = location();
             Type returnType = new PrimitiveType(location, Primitive.VOID);
             cd.methods.add(parseMethodDeclaration(
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     "<init>",
                     false));
@@ -174,13 +175,14 @@ public class Parser {
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     name,
                     false));
             return;
         }
 
-        Type returnType = parseType();
+        Type returnType = parseTypeWithArgs();
         Location location = location();
         String name = parseIdentifier();
         if (peek("(")) {
@@ -188,6 +190,7 @@ public class Parser {
                     location,
                     annotations,
                     modifiers,
+                    typeParameters,
                     returnType,
                     name,
                     hasModifier(cd.modifiers, "@interface")));
@@ -234,12 +237,12 @@ public class Parser {
         );
     }
 
-    private MethodDeclaration parseMethodDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type returnType, String name, boolean allowDefaultClause) {
+    private MethodDeclaration parseMethodDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, List<TypeParameter> typeParameters, Type returnType, String name, boolean allowDefaultClause) {
         return new MethodDeclaration(
                 location,
                 annotations,
                 modifiers,
-                new ArrayList<>(),
+                typeParameters,
                 returnType,
                 name,
                 parseMethodParameterTypes(),
@@ -256,7 +259,7 @@ public class Parser {
             return parameterTypes;
         }
         do {
-            parameterTypes.add(parseType());
+            parameterTypes.add(parseTypeWithArgs());
         } while (peekRead(","));
         read(")");
         return parameterTypes;
@@ -307,13 +310,12 @@ public class Parser {
         return new LocalVariable(
                 read("var").getLocation(),
                 parseIdentifier(),
-                parseType(),
+                parseTypeWithArgs(),
                 parseIdentifier(),
                 parseIdentifier(),
                 parseIntegerLiteral()
         );
     }
-
 
     private TryCatchBlock parseTryCatchBlock() {
         return new TryCatchBlock(
@@ -812,14 +814,14 @@ public class Parser {
         Location location = location();
         if (peekRead("?")) {
             if (peekRead("extends")) {
-                return new Wildcard(location, Wildcard.Bounds.EXTENDS, parseReferenceType());
+                return new Wildcard(location, Wildcard.Bounds.EXTENDS, parseReferenceTypeWithArgs());
             } else if (peekRead("super")) {
-                return new Wildcard(location, Wildcard.Bounds.SUPER, parseReferenceType());
+                return new Wildcard(location, Wildcard.Bounds.SUPER, parseReferenceTypeWithArgs());
             } else {
                 return new Wildcard(location);
             }
         }
-        return parseReferenceType();
+        return parseReferenceTypeWithArgs();
     }
 
     private int parseBrackets() {
