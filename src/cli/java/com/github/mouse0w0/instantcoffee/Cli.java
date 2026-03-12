@@ -9,10 +9,8 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -29,6 +27,7 @@ public class Cli {
     private static boolean skipLocalVariable;
     private static boolean failOnUnsupported;
     private static boolean printTextify;
+    private static boolean validate;
 
     public static void main(String[] args) {
         try {
@@ -54,6 +53,7 @@ public class Cli {
                     .availableIf(decompileSpec);
             OptionSpec<Void> printTextifySpec = parser.acceptsAll(Arrays.asList("T", "print-textify"), "Print textify")
                     .availableIf(decompileSpec);
+            OptionSpec<Void> validateSpec = parser.acceptsAll(Arrays.asList("V", "validate"), "Validate mode");
 
             OptionSet options;
             try {
@@ -67,6 +67,7 @@ public class Cli {
             source = Paths.get(options.valueOf(sourceSpec)).toAbsolutePath();
             destination = Paths.get(options.valueOf(destinationSpec)).toAbsolutePath();
             decompile = options.has(decompileSpec);
+            validate = options.has(validateSpec);
             indent = indent(options.valueOf(indentSpec));
             skipLineNumber = options.has(skipLineNumberSpec);
             skipLocalVariable = options.has(skipLocalVariableSpec);
@@ -78,7 +79,7 @@ public class Cli {
                 return;
             }
 
-            compileOrDecompile();
+            process();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -92,7 +93,7 @@ public class Cli {
         return sb.toString();
     }
 
-    private static void compileOrDecompile() throws IOException {
+    private static void process() throws IOException {
         AtomicInteger count = new AtomicInteger();
         if (Files.isDirectory(source)) {
             Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
@@ -123,23 +124,54 @@ public class Cli {
 
     private static void processFile(Path file) throws IOException {
         if (decompile) {
-            byte[] bytes = Files.readAllBytes(file);
-            ClassReader classReader = new ClassReader(bytes);
             Decompiler decompiler = new Decompiler();
             decompiler.setFailOnUnsupportedFeature(failOnUnsupported);
-            ClassDeclaration classDeclaration = decompiler.decompileClass(classReader);
+
             Unparser unparser = new Unparser();
             unparser.setIndent(indent);
             unparser.setSkipLineNumber(skipLineNumber);
             unparser.setSkipLocalVariable(skipLocalVariable);
-            Path output = destination.resolve(String.join("/", classDeclaration.identifiers) + ".ic");
-            try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(output))) {
-                unparser.unparseClass(classDeclaration, writer);
+
+            ClassReader classReader = new ClassReader(Files.readAllBytes(file));
+            ClassDeclaration classDeclaration = decompiler.decompileClass(classReader);
+            String classInternalName = String.join("/", classDeclaration.identifiers);
+
+            StringWriter icWriter = new StringWriter();
+            unparser.unparseClass(classDeclaration, icWriter);
+            String ic = icWriter.toString();
+            writeString(destination.resolve(classInternalName + ".ic"), ic, StandardCharsets.UTF_8);
+
+            String textify = null;
+            if (validate || printTextify) {
+                StringWriter textifyWriter = new StringWriter();
+                classReader.accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(textifyWriter)), ClassReader.SKIP_FRAMES);
+                textify = textifyWriter.toString();
+                writeString(destination.resolve(classInternalName + ".txt"), textify, StandardCharsets.UTF_8);
             }
-            if (printTextify) {
-                Path textifyOutput = destination.resolve(String.join("/", classDeclaration.identifiers) + ".txt");
-                try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(textifyOutput))) {
-                    new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(writer)), ClassReader.SKIP_FRAMES);
+
+            if (validate) {
+                StringReader icReader = new StringReader(ic);
+                Parser parser = new Parser(icReader);
+                Compiler compiler = new Compiler();
+                ClassFile recompiledClassFile = compiler.compile(parser.parseClassDeclaration());
+                byte[] recompiledBytes = recompiledClassFile.toByteArray();
+                ClassReader recompiledClassReader = new ClassReader(recompiledBytes);
+
+                StringWriter recompiledIcWriter = new StringWriter();
+                unparser.unparseClass(decompiler.decompileClass(recompiledClassReader), recompiledIcWriter);
+                String recompiledIc = recompiledIcWriter.toString();
+                writeString(destination.resolve(classInternalName + ".recompiled.ic"), recompiledIc, StandardCharsets.UTF_8);
+
+                StringWriter recompiledTextifyWriter = new StringWriter();
+                recompiledClassReader.accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(recompiledTextifyWriter)), ClassReader.SKIP_FRAMES);
+                String recompiledTextify = recompiledTextifyWriter.toString();
+                writeString(destination.resolve(classInternalName + ".recompiled.txt"), recompiledTextify, StandardCharsets.UTF_8);
+
+                boolean icMatch = ic.equals(recompiledIc);
+                boolean textifyMatch = textify.equals(recompiledTextify);
+
+                if (!icMatch || !textifyMatch) {
+                    System.out.printf("%s: Decompilation: %s Textify: %s%n", source.relativize(file), icMatch ? "PASS" : "FAIL", textifyMatch ? "PASS" : "FAIL");
                 }
             }
         } else {
@@ -159,5 +191,11 @@ public class Cli {
             Files.createDirectories(parent);
         }
         return path;
+    }
+
+    private static void writeString(Path path, String string, Charset charset, OpenOption... options) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(path), charset, options)) {
+            writer.write(string);
+        }
     }
 }
