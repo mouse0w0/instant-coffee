@@ -10,15 +10,15 @@ public class ReferenceType extends Located implements Type, TypeArgument {
     public List<String> identifiers;
     public List<TypeArgument> typeArguments;
 
-    public ReferenceType(Location location, List<String> identifier) {
+    public ReferenceType(Location location, List<String> identifiers) {
         super(location);
-        this.identifiers = identifier;
+        this.identifiers = identifiers;
         this.typeArguments = new ArrayList<>();
     }
 
-    public ReferenceType(Location location, List<String> identifier, List<TypeArgument> typeArguments) {
+    public ReferenceType(Location location, List<String> identifiers, List<TypeArgument> typeArguments) {
         super(location);
-        this.identifiers = identifier;
+        this.identifiers = identifiers;
         this.typeArguments = typeArguments;
     }
 
