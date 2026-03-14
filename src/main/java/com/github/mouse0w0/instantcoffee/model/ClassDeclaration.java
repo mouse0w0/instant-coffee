@@ -20,7 +20,7 @@ public class ClassDeclaration extends Located {
     public ReferenceType outerClass;
     public String outerMethod;
     public MethodType outerMethodType;
-    public List<InnerClassDeclaration> innerClasses;
+    public List<InnerClass> innerClasses;
     public List<FieldDeclaration> fields;
     public List<MethodDeclaration> methods;
 

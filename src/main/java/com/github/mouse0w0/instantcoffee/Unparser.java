@@ -99,7 +99,7 @@ public class Unparser {
         for (ReferenceType permittedSubclass : cd.permittedSubclasses) {
             unparsePermittedSubclass(permittedSubclass, pw);
         }
-        for (InnerClassDeclaration innerClass : cd.innerClasses) {
+        for (InnerClass innerClass : cd.innerClasses) {
             unparseInnerClass(innerClass, pw);
         }
         for (FieldDeclaration field : cd.fields) {
@@ -257,7 +257,7 @@ public class Unparser {
         pw.println();
     }
 
-    private void unparseInnerClass(InnerClassDeclaration icd, PrintWriter pw) {
+    private void unparseInnerClass(InnerClass icd, PrintWriter pw) {
         pw.println();
         appendIndent(pw);
         unparseModifiers(icd.modifiers, pw);

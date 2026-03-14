@@ -219,13 +219,13 @@ public class Parser {
         cd.fields.add(parseFieldDeclaration(location, annotations, modifiers, returnType, name));
     }
 
-    private InnerClassDeclaration parseInnerClassDeclaration(List<Modifier> modifiers) {
+    private InnerClass parseInnerClassDeclaration(List<Modifier> modifiers) {
         Location location = location();
         InnerClassType type;
         if (peekRead("anonymous")) {
             read("innerclass");
             type = InnerClassType.ANONYMOUS;
-            return new InnerClassDeclaration(location, type, modifiers, parseQualifiedIdentifier(), null);
+            return new InnerClass(location, type, modifiers, parseQualifiedIdentifier(), null);
         }
 
         if (peekRead("local")) {
@@ -234,7 +234,7 @@ public class Parser {
             type = InnerClassType.MEMBER_OR_STATIC;
         }
         read("innerclass");
-        return new InnerClassDeclaration(location, type, modifiers, parseQualifiedIdentifier(), parseIdentifier());
+        return new InnerClass(location, type, modifiers, parseQualifiedIdentifier(), parseIdentifier());
     }
 
     private FieldDeclaration parseFieldDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type type, String name) {

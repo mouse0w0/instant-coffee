@@ -625,7 +625,7 @@ public class Decompiler {
                 type = InnerClassType.MEMBER_OR_STATIC;
             }
 
-            cd.innerClasses.add(new InnerClassDeclaration(Location.UNKNOWN, type, parseClassModifiers(access),
+            cd.innerClasses.add(new InnerClass(Location.UNKNOWN, type, parseClassModifiers(access),
                     parseIdentifiers(name), innerName));
         }
 

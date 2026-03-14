@@ -4,13 +4,13 @@ import com.github.mouse0w0.instantcoffee.Location;
 
 import java.util.List;
 
-public class InnerClassDeclaration extends Located {
+public class InnerClass extends Located {
     public InnerClassType type;
     public List<Modifier> modifiers;
     public List<String> name;
     public String innerName;
 
-    public InnerClassDeclaration(Location location, InnerClassType type, List<Modifier> modifiers, List<String> name, String innerName) {
+    public InnerClass(Location location, InnerClassType type, List<Modifier> modifiers, List<String> name, String innerName) {
         super(location);
         this.type = type;
         this.modifiers = modifiers;

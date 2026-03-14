@@ -367,8 +367,8 @@ public class Compiler {
         }
     }
 
-    private void compileInnerClasses(List<InnerClassDeclaration> innerClasses, ClassVisitor cv) {
-        for (InnerClassDeclaration innerClass : innerClasses) {
+    private void compileInnerClasses(List<InnerClass> innerClasses, ClassVisitor cv) {
+        for (InnerClass innerClass : innerClasses) {
             String name = getInternalName2(innerClass.name);
             String innerName = innerClass.innerName;
             int access = getInnerClassAccess(innerClass.modifiers);
