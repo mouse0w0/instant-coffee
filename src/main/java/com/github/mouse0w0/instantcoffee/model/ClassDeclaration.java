@@ -21,6 +21,7 @@ public class ClassDeclaration extends Located {
     public String outerMethod;
     public MethodType outerMethodType;
     public List<InnerClass> innerClasses;
+    public List<RecordComponentDeclaration> recordComponents;
     public List<FieldDeclaration> fields;
     public List<MethodDeclaration> methods;
 
@@ -34,6 +35,7 @@ public class ClassDeclaration extends Located {
         this.nestMembers = new ArrayList<>();
         this.permittedSubclasses = new ArrayList<>();
         this.innerClasses = new ArrayList<>();
+        this.recordComponents = new ArrayList<>();
         this.fields = new ArrayList<>();
         this.methods = new ArrayList<>();
     }
@@ -49,6 +51,7 @@ public class ClassDeclaration extends Located {
         this.nestMembers = new ArrayList<>();
         this.permittedSubclasses = new ArrayList<>();
         this.innerClasses = new ArrayList<>();
+        this.recordComponents = new ArrayList<>();
         this.fields = new ArrayList<>();
         this.methods = new ArrayList<>();
     }

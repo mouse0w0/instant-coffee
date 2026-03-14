@@ -156,6 +156,11 @@ public class Parser {
         }
 
         List<Annotation> annotations = parseAnnotations();
+        if (peekRead("component")) {
+            cd.recordComponents.add(parseRecordComponentDeclaration(annotations));
+            return;
+        }
+
         List<Modifier> modifiers = parseModifiers();
         if (peek("innerclass") || peek("local") || peek("anonymous")) {
             if (!annotations.isEmpty()) {
@@ -239,6 +244,13 @@ public class Parser {
 
     private FieldDeclaration parseFieldDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers, Type type, String name) {
         return new FieldDeclaration(location, annotations, modifiers, type, name, peekRead("=") ? parseValue() : null);
+    }
+
+    private RecordComponentDeclaration parseRecordComponentDeclaration(List<Annotation> annotations) {
+        Location location = location();
+        Type type = parseTypeWithArgs();
+        String name = parseIdentifier();
+        return new RecordComponentDeclaration(location, annotations, type, name);
     }
 
     private MethodDeclaration parseInitializerDeclaration(Location location, List<Annotation> annotations, List<Modifier> modifiers) {

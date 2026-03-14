@@ -19,8 +19,6 @@ import static com.github.mouse0w0.instantcoffee.Constants.*;
 public class Decompiler {
     private static final ModuleVisitor SKIP_MODULE_VISITOR = new ModuleVisitor(Opcodes.ASM9) {
     };
-    private static final RecordComponentVisitor SKIP_RECORD_COMPONENT_VISITOR = new RecordComponentVisitor(Opcodes.ASM9) {
-    };
     private static final AnnotationVisitor SKIP_ANNOTATION_VISITOR = new AnnotationVisitor(Opcodes.ASM9) {
     };
 
@@ -61,22 +59,25 @@ public class Decompiler {
             l.add(new Modifier(Location.UNKNOWN, "synthetic"));
         if ((access & ACC_STATIC) != 0)
             l.add(new Modifier(Location.UNKNOWN, "static"));
-        if ((access & ACC_FINAL) != 0)
-            l.add(new Modifier(Location.UNKNOWN, "final"));
 
         if ((access & ACC_RECORD) != 0) {
             l.add(new Modifier(Location.UNKNOWN, "record"));
-        } else if ((access & ACC_ENUM) != 0) {
-            l.add(new Modifier(Location.UNKNOWN, "enum"));
-        } else if ((access & ACC_ANNOTATION) != 0) {
-            l.add(new Modifier(Location.UNKNOWN, "@interface"));
-        } else if ((access & ACC_INTERFACE) != 0) {
-            l.add(new Modifier(Location.UNKNOWN, "interface"));
         } else {
-            if ((access & ACC_ABSTRACT) != 0)
-                l.add(new Modifier(Location.UNKNOWN, "abstract"));
-            if ((access & ACC_SUPER) != 0)
-                l.add(new Modifier(Location.UNKNOWN, "class"));
+            if ((access & ACC_FINAL) != 0)
+                l.add(new Modifier(Location.UNKNOWN, "final"));
+
+            if ((access & ACC_ENUM) != 0) {
+                l.add(new Modifier(Location.UNKNOWN, "enum"));
+            } else if ((access & ACC_ANNOTATION) != 0) {
+                l.add(new Modifier(Location.UNKNOWN, "@interface"));
+            } else if ((access & ACC_INTERFACE) != 0) {
+                l.add(new Modifier(Location.UNKNOWN, "interface"));
+            } else {
+                if ((access & ACC_ABSTRACT) != 0)
+                    l.add(new Modifier(Location.UNKNOWN, "abstract"));
+                if ((access & ACC_SUPER) != 0)
+                    l.add(new Modifier(Location.UNKNOWN, "class"));
+            }
         }
         return l;
     }
@@ -631,10 +632,11 @@ public class Decompiler {
 
         @Override
         public RecordComponentVisitor visitRecordComponent(String name, String descriptor, String signature) {
-            if (isFailOnUnsupportedFeature()) {
-                throw new UnsupportedOperationException("record component");
-            }
-            return SKIP_RECORD_COMPONENT_VISITOR;
+            RecordComponentDeclaration rcd = new RecordComponentDeclaration(Location.UNKNOWN);
+            rcd.name = name;
+            rcd.type = signature != null ? parseTypeSignature(signature) : parseType(descriptor);
+            cd.recordComponents.add(rcd);
+            return new MyRecordComponentVisitor(rcd);
         }
 
         @Override
@@ -703,6 +705,44 @@ public class Decompiler {
             annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
             annotation.visible = visible;
             fd.annotations.add(annotation);
+            return new NormalAnnotationVisitor(annotation);
+        }
+
+        @Override
+        public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("type annotation");
+            }
+            return SKIP_ANNOTATION_VISITOR;
+        }
+
+        @Override
+        public void visitAttribute(Attribute attribute) {
+            if (isFailOnUnsupportedFeature()) {
+                throw new UnsupportedOperationException("attribute");
+            }
+        }
+
+        @Override
+        public void visitEnd() {
+            // Nothing to do.
+        }
+    }
+
+    private class MyRecordComponentVisitor extends RecordComponentVisitor {
+        private final RecordComponentDeclaration rcd;
+
+        public MyRecordComponentVisitor(RecordComponentDeclaration rcd) {
+            super(Opcodes.ASM9);
+            this.rcd = rcd;
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+            Annotation annotation = new Annotation(Location.UNKNOWN);
+            annotation.type = parseInternal(descriptor, 1, descriptor.length() - 1);
+            annotation.visible = visible;
+            rcd.annotations.add(annotation);
             return new NormalAnnotationVisitor(annotation);
         }
 

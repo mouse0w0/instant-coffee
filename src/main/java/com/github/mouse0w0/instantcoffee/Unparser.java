@@ -102,6 +102,9 @@ public class Unparser {
         for (InnerClass innerClass : cd.innerClasses) {
             unparseInnerClass(innerClass, pw);
         }
+        for (RecordComponentDeclaration recordComponent : cd.recordComponents) {
+            unparseRecordComponent(recordComponent, pw);
+        }
         for (FieldDeclaration field : cd.fields) {
             unparseField(field, pw);
         }
@@ -275,6 +278,14 @@ public class Unparser {
                 pw.append(" ").append(icd.innerName);
                 break;
         }
+        pw.println();
+    }
+
+    private void unparseRecordComponent(RecordComponentDeclaration rcd, PrintWriter pw) {
+        pw.println();
+        unparseAnnotations(rcd.annotations, pw);
+        appendIndent(pw);
+        pw.append("component ").append(rcd.type.toString()).append(" ").append(rcd.name);
         pw.println();
     }
 

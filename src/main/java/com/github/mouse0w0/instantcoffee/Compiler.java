@@ -40,6 +40,7 @@ public class Compiler {
         compilePermittedSubclasses(cd.permittedSubclasses, cv);
         compileAnnotations(cd.annotations, cv);
         compileInnerClasses(cd.innerClasses, cv);
+        compileRecordComponents(cd.recordComponents, cv, cc);
         compileFields(cd.fields, cv, cc);
         compileMethods(cd.methods, cv, cc);
         cv.visitEnd();
@@ -316,6 +317,8 @@ public class Compiler {
                 access |= ACC_ANNOTATION | ACC_INTERFACE | ACC_ABSTRACT;
             } else if ("enum".equals(keyword)) {
                 access |= ACC_ENUM | ACC_SUPER;
+            } else if ("record".equals(keyword)) {
+                access |= ACC_RECORD | ACC_FINAL | ACC_SUPER;
             } else {
                 throw new CompileException("Access modifier " + keyword + " not allowed for class", modifier.getLocation());
             }
@@ -418,6 +421,22 @@ public class Compiler {
             }
         }
         return access;
+    }
+
+    private void compileRecordComponents(List<RecordComponentDeclaration> recordComponents, ClassVisitor cv, ClassContext cc) {
+        for (RecordComponentDeclaration recordComponent : recordComponents) {
+            compileRecordComponent(recordComponent, cv, cc);
+        }
+    }
+
+    private void compileRecordComponent(RecordComponentDeclaration recordComponent, ClassVisitor cv, ClassContext cc) {
+        String name = recordComponent.name;
+        String descriptor = getDescriptor(cc.getRawType(recordComponent.type));
+        String signature = needTypeSignature(recordComponent.type, cc) ? getTypeSignature(recordComponent.type, cc) : null;
+        RecordComponentVisitor rcv = cv.visitRecordComponent(name, descriptor, signature);
+
+        compileAnnotations(recordComponent.annotations, rcv);
+        rcv.visitEnd();
     }
 
     private void compileFields(List<FieldDeclaration> fields, ClassVisitor cv, ClassContext cc) {
@@ -836,6 +855,12 @@ public class Compiler {
     private void compileAnnotations(List<Annotation> annotations, MethodVisitor mv) {
         for (Annotation annotation : annotations) {
             compileAnnotation(annotation, mv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
+        }
+    }
+
+    private void compileAnnotations(List<Annotation> annotations, RecordComponentVisitor rcv) {
+        for (Annotation annotation : annotations) {
+            compileAnnotation(annotation, rcv.visitAnnotation(getDescriptor2(annotation.type), annotation.visible));
         }
     }
 
