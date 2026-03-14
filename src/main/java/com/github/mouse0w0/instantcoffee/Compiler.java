@@ -35,6 +35,7 @@ public class Compiler {
         cv.visit(version, access, name, signature, superclass, interfaces);
         compileSource(cd.source, cv);
         compileNestHost(cd.nestHost, cv);
+        compileOuterClass(cd.outerClass, cd.outerMethod, cd.outerMethodType, cv);
         compileNestMembers(cd.nestMembers, cv);
         compilePermittedSubclasses(cd.permittedSubclasses, cv);
         compileAnnotations(cd.annotations, cv);
@@ -343,6 +344,13 @@ public class Compiler {
     private void compileNestHost(ReferenceType nestHost, ClassVisitor cv) {
         if (nestHost == null) return;
         cv.visitNestHost(getInternalName2(nestHost));
+    }
+
+    private void compileOuterClass(ReferenceType outerClass, String outerMethod, MethodType outerMethodType, ClassVisitor cv) {
+        if (outerClass == null) return;
+        String owner = getInternalName2(outerClass);
+        String descriptor = outerMethodType != null ? getMethodDescriptor(outerMethodType) : null;
+        cv.visitOuterClass(owner, outerMethod, descriptor);
     }
 
     private void compileNestMembers(List<ReferenceType> nestMembers, ClassVisitor cv) {

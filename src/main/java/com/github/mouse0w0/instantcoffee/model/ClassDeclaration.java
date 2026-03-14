@@ -17,6 +17,9 @@ public class ClassDeclaration extends Located {
     public ReferenceType nestHost;
     public List<ReferenceType> nestMembers;
     public List<ReferenceType> permittedSubclasses;
+    public ReferenceType outerClass;
+    public String outerMethod;
+    public MethodType outerMethodType;
     public List<InnerClassDeclaration> innerClasses;
     public List<FieldDeclaration> fields;
     public List<MethodDeclaration> methods;

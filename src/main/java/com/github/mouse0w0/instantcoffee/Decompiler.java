@@ -574,9 +574,9 @@ public class Decompiler {
 
         @Override
         public void visitOuterClass(String owner, String name, String descriptor) {
-            if (isFailOnUnsupportedFeature()) {
-                throw new UnsupportedOperationException("outer class");
-            }
+            cd.outerClass = parseInternal(owner);
+            cd.outerMethod = name;
+            cd.outerMethodType = descriptor != null ? parseMethodType(descriptor) : null;
         }
 
         @Override

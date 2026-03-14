@@ -12,37 +12,76 @@ import java.nio.file.Paths;
 
 public class Utils {
     public static void validate(Class<?> clazz) {
-        validate(clazz, false, false);
-    }
-
-    public static void validateIgnoreTextified(Class<?> clazz) {
-        validate(clazz, true, false);
+        validate(clazz.getName(), clazz.getSimpleName(), false, false);
     }
 
     public static void validate(Class<?> clazz, boolean ignoredTextified, boolean print) {
-        String decompiledRaw = decompile(clazz);
-        String textifiedRaw = textify(clazz);
+        validate(clazz.getName(), clazz.getSimpleName(), ignoredTextified, print);
+    }
+
+    public static void validateIgnoreTextified(Class<?> clazz) {
+        validate(clazz.getName(), clazz.getSimpleName(), true, false);
+    }
+
+    public static void validateInnerClass(Class<?> outerClass, String innerClassName) {
+        validate(outerClass.getName() + "$" + innerClassName,
+                outerClass.getSimpleName() + "$" + innerClassName, false, false);
+    }
+
+    public static void validateInnerClass(Class<?> outerClass, String innerClassName, boolean ignoredTextified, boolean print) {
+        validate(outerClass.getName() + "$" + innerClassName,
+                outerClass.getSimpleName() + "$" + innerClassName, ignoredTextified, print);
+    }
+
+    public static void validateInnerClassIgnoreTextified(Class<?> outerClass, String innerClassName) {
+        validate(outerClass.getName() + "$" + innerClassName,
+                outerClass.getSimpleName() + "$" + innerClassName, true, false);
+    }
+
+    public static void validate(String className, String simpleName, boolean ignoredTextified, boolean print) {
+        byte[] classBytes = readClassBytes(className);
+
+        String ic = decompile(classBytes);
+        String textify = textify(classBytes);
 
         if (print) {
-            writeString(Paths.get(clazz.getSimpleName() + "_decompiled_raw.txt"), decompiledRaw);
-            writeString(Paths.get(clazz.getSimpleName() + "_textified_raw.txt"), textifiedRaw);
+            writeString(Paths.get(simpleName + ".raw.ic"), ic);
+            writeString(Paths.get(simpleName + ".raw.txt"), textify);
         }
 
-        byte[] recompiled = compile(decompiledRaw);
+        byte[] recompiled = compile(ic);
 
-        String decompiledNew = decompile(recompiled);
-        String textifiedNew = textify(recompiled);
+        String recompiledIc = decompile(recompiled);
+        String recompiledTextify = textify(recompiled);
 
         if (print) {
-            writeString(Paths.get(clazz.getSimpleName() + "_decompiled_new.txt"), decompiledNew);
-            writeString(Paths.get(clazz.getSimpleName() + "_textified_new.txt"), textifiedNew);
+            writeString(Paths.get(simpleName + ".recompiled.ic"), recompiledIc);
+            writeString(Paths.get(simpleName + ".recompiled.txt"), recompiledTextify);
         }
 
-        if (decompiledRaw.equals(decompiledNew) && (ignoredTextified || textifiedRaw.equals(textifiedNew))) {
+        if (ic.equals(recompiledIc) && (ignoredTextified || textify.equals(recompiledTextify))) {
             return;
         }
 
-        throw new AssertionError();
+        throw new AssertionError("Validation failed for: " + className);
+    }
+
+    private static byte[] readClassBytes(String className) {
+        String resourcePath = className.replace('.', '/') + ".class";
+        try (InputStream input = Utils.class.getClassLoader().getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                throw new IllegalArgumentException("Class not found: " + className);
+            }
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[8192];
+            int nRead;
+            while ((nRead = input.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            return buffer.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage(), e);
+        }
     }
 
     public static String readString(InputStream inputStream) {
@@ -75,42 +114,15 @@ public class Utils {
         return new Compiler().compile(new Parser(s).parseClassDeclaration()).toByteArray();
     }
 
-    public static String decompile(Class<?> clazz) {
-        try (InputStream input = openStream(clazz)) {
-            StringWriter sw = new StringWriter();
-            Unparser.unparse(Decompiler.decompile(new ClassReader(input)), sw);
-            return sw.toString();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e.getMessage(), e);
-        }
-    }
-
     public static String decompile(byte[] bytes) {
         StringWriter sw = new StringWriter();
         Unparser.unparse(Decompiler.decompile(new ClassReader(bytes)), sw);
         return sw.toString();
     }
 
-    public static String textify(Class<?> clazz) {
-        try (InputStream inputStream = openStream(clazz)) {
-            StringWriter sw = new StringWriter();
-            new ClassReader(inputStream).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
-            return sw.toString();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e.getMessage(), e);
-        }
-    }
-
     public static String textify(byte[] bytes) {
         StringWriter sw = new StringWriter();
         new ClassReader(bytes).accept(new TraceClassVisitor(null, new Textifier(), new PrintWriter(sw)), ClassReader.SKIP_FRAMES);
         return sw.toString();
-    }
-
-    private static InputStream openStream(Class<?> clazz) {
-        String classQualifiedName = clazz.getName();
-        int index = classQualifiedName.lastIndexOf('.');
-        String className = index != -1 ? classQualifiedName.substring(index + 1) : classQualifiedName;
-        return clazz.getResourceAsStream(className + ".class");
     }
 }

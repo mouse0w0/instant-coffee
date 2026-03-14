@@ -92,6 +92,7 @@ public class Unparser {
         unparseVersion(cd.version, pw);
         unparseSource(cd.source, pw);
         unparseNestHost(cd.nestHost, pw);
+        unparseOuterClass(cd.outerClass, cd.outerMethod, cd.outerMethodType, pw);
         for (ReferenceType nestMember : cd.nestMembers) {
             unparseNestMember(nestMember, pw);
         }
@@ -227,6 +228,21 @@ public class Unparser {
         pw.println();
         appendIndent(pw).append("nesthost ").append(nestHost.toString());
         pw.println();
+    }
+
+    private void unparseOuterClass(ReferenceType outerClass, String outerMethod, MethodType outerMethodType, PrintWriter pw) {
+        if (outerClass == null) return;
+        pw.println();
+        appendIndent(pw).append("outerclass ").append(outerClass.toString());
+        pw.println();
+        if (outerMethod != null) {
+            appendIndent(pw)
+                    .append("outermethod ")
+                    .append(outerMethod)
+                    .append(" ")
+                    .append(outerMethodType.toString());
+            pw.println();
+        }
     }
 
     private void unparseNestMember(ReferenceType nestMember, PrintWriter pw) {

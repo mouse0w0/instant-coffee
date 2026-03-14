@@ -136,6 +136,20 @@ public class Parser {
             return;
         }
 
+        if (peekRead("outerclass")) {
+            cd.outerClass = parseReferenceType();
+            return;
+        }
+
+        if (peekRead("outermethod")) {
+            if (cd.outerClass == null) {
+                throw new CompileException("outerclass must be declared before outermethod", location());
+            }
+            cd.outerMethod = parseIdentifier();
+            cd.outerMethodType = parseMethodType();
+            return;
+        }
+
         if (peekRead("permits")) {
             cd.permittedSubclasses.add(parseReferenceType());
             return;
