@@ -5,7 +5,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import java.util.Iterator;
 import java.util.List;
 
-public class MethodType extends Located implements HandleType {
+public final class MethodType extends Located implements HandleType {
     public List<Type> parameterTypes;
     public Type returnType;
 

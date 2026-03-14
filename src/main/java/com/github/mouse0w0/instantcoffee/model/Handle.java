@@ -2,7 +2,7 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
-public class Handle extends Located implements Value {
+public final class Handle extends Located implements Value {
     public String kind;
     public ReferenceType owner;
     public String name;

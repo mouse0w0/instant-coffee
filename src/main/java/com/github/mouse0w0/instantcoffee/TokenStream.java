@@ -161,7 +161,7 @@ public class TokenStream {
 
         if (a.length == 0) return "(zero length array)";
 
-        StringBuffer sb = new StringBuffer().append(a[0]);
+        StringBuilder sb = new StringBuilder().append(a[0]);
         for (int i = 1; i < a.length; i++) {
             sb.append(delimiter).append(a[i]);
         }
@@ -173,7 +173,7 @@ public class TokenStream {
 
         if (a.length == 0) return "(zero length array)";
 
-        StringBuffer sb = new StringBuffer().append("\"").append(a[0]).append("\"");
+        StringBuilder sb = new StringBuilder().append("\"").append(a[0]).append("\"");
         for (int i = 1; i < a.length; i++) {
             sb.append(delimiter).append("\"").append(a[i]).append("\"");
         }

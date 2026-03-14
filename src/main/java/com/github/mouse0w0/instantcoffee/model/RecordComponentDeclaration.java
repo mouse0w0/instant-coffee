@@ -5,7 +5,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RecordComponentDeclaration extends Located {
+public final class RecordComponentDeclaration extends Located {
     public List<Annotation> annotations;
     public Type type;
     public String name;

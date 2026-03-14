@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.MethodType;
 import com.github.mouse0w0.instantcoffee.model.Type;
 
-public class MethodInsn extends BaseInsn {
+public final class MethodInsn extends BaseInsn {
     public Type owner;
     public String name;
     public MethodType methodType;

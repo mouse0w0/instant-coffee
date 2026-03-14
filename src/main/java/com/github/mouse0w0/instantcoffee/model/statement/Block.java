@@ -5,7 +5,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Block extends Statement {
+public final class Block extends Statement {
     public List<Statement> statements;
 
     public Block(Location location) {

@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.ReferenceType;
 import com.github.mouse0w0.instantcoffee.model.Type;
 
-public class FieldInsn extends BaseInsn {
+public final class FieldInsn extends BaseInsn {
     public ReferenceType owner;
     public String name;
     public Type type;

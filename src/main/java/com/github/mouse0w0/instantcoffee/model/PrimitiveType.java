@@ -2,7 +2,7 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
-public class PrimitiveType extends Located implements Type {
+public final class PrimitiveType extends Located implements Type {
     public Primitive primitive;
 
     public PrimitiveType(Location location, Primitive primitive) {

@@ -15,9 +15,6 @@ import static com.github.mouse0w0.instantcoffee.Constants.*;
 public class Compiler {
     private static final String[] EMPTY_STRING_ARRAY = {};
 
-    public Compiler() {
-    }
-
     public ClassFile compile(ClassDeclaration cd) {
         ClassCompiler compiler = new ClassCompiler();
         compileClass(cd, compiler);

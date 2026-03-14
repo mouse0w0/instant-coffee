@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 
 import java.util.List;
 
-public class ConstantDynamic extends Located implements Value {
+public final class ConstantDynamic extends Located implements Value {
     public String name;
     public Type type;
     public Handle bootstrapMethod;

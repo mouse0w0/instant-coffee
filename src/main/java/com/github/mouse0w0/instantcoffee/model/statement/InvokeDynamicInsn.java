@@ -8,7 +8,7 @@ import com.github.mouse0w0.instantcoffee.model.Value;
 
 import java.util.List;
 
-public class InvokeDynamicInsn extends BaseInsn {
+public final class InvokeDynamicInsn extends BaseInsn {
     private static final String OPCODE = Constants.getOpcodeName(Constants.INVOKEDYNAMIC);
 
     public String name;

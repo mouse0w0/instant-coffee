@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 import com.github.mouse0w0.instantcoffee.model.Located;
 
-public class SwitchCase extends Located {
+public final class SwitchCase extends Located {
     public IntegerLiteral key;
     public String label;
 

@@ -1,6 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
-public class Token {
+public final class Token {
     private final Location location;
     private final TokenType type;
     private final String text;

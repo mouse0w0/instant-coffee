@@ -5,7 +5,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 import com.github.mouse0w0.instantcoffee.model.Type;
 
-public class MultiANewArrayInsn extends BaseInsn {
+public final class MultiANewArrayInsn extends BaseInsn {
     private static final String OPCODE = Constants.getOpcodeName(Constants.MULTIANEWARRAY);
 
     public Type type;

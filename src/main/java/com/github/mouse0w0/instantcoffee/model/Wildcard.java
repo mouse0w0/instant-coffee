@@ -2,7 +2,7 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
-public class Wildcard extends Located implements TypeArgument {
+public final class Wildcard extends Located implements TypeArgument {
     public enum Bounds {
         EXTENDS,
         SUPER

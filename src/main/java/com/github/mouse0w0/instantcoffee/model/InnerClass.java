@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 
 import java.util.List;
 
-public class InnerClass extends Located {
+public final class InnerClass extends Located {
     public InnerClassType type;
     public List<Modifier> modifiers;
     public List<String> name;

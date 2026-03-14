@@ -5,7 +5,7 @@ import org.objectweb.asm.Opcodes;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Constants implements Opcodes {
+public final class Constants implements Opcodes {
     public static final int NOT_FOUND = -1;
 
     public static final int FLAG_INTERFACE = 0x10000;
@@ -315,5 +315,9 @@ public class Constants implements Opcodes {
         putHandleKind(H_INVOKESPECIAL | FLAG_INTERFACE, "invokespecialinterface");
         putHandleKind(H_INVOKEVIRTUAL | FLAG_INTERFACE, "invokevirtualinterface");
         putHandleKind(H_NEWINVOKESPECIAL | FLAG_INTERFACE, "newinvokespecialinterface");
+    }
+
+    private Constants() {
+        throw new Error();
     }
 }

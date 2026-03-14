@@ -2,7 +2,7 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
-public class AnnotationValuePair extends Located {
+public final class AnnotationValuePair extends Located {
     public String key;
     public AnnotationValue value;
 

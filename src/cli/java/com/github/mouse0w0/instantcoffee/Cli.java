@@ -17,7 +17,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Cli {
+public final class Cli {
     private static Path source;
     private static Path destination;
     private static boolean decompile;
@@ -197,5 +197,9 @@ public class Cli {
         try (BufferedWriter writer = Files.newBufferedWriter(ensureParentExists(path), charset, options)) {
             writer.write(string);
         }
+    }
+
+    private Cli() {
+        throw new Error();
     }
 }

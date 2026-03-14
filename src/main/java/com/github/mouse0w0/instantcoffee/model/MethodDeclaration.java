@@ -6,7 +6,7 @@ import com.github.mouse0w0.instantcoffee.model.statement.Block;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MethodDeclaration extends Located {
+public final class MethodDeclaration extends Located {
     public List<Annotation> annotations;
     public List<Modifier> modifiers;
     public List<TypeParameter> typeParameters;

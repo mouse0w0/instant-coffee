@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Constants;
 import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.PrimitiveType;
 
-public class NewArrayInsn extends BaseInsn {
+public final class NewArrayInsn extends BaseInsn {
     private static final String OPCODE = Constants.getOpcodeName(Constants.NEWARRAY);
 
     public PrimitiveType type;

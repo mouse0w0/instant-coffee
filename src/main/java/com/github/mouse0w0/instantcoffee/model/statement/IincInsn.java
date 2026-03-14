@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Constants;
 import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 
-public class IincInsn extends BaseInsn {
+public final class IincInsn extends BaseInsn {
     private static final String OPCODE = Constants.getOpcodeName(Constants.IINC);
 
     public IntegerLiteral var;

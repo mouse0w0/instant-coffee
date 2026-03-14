@@ -1,6 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
-public class InternalCompileException extends RuntimeException {
+public final class InternalCompileException extends RuntimeException {
     public InternalCompileException() {
     }
 

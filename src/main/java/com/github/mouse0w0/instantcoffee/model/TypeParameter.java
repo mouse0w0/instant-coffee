@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class TypeParameter extends Located {
+public final class TypeParameter extends Located {
     public String name;
     public List<ReferenceType> bounds;
     public boolean isInterfaceBounds;

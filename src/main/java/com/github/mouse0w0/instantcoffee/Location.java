@@ -1,6 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
-public class Location {
+public final class Location {
     public static final Location UNKNOWN = new Location("<unknown>", -1, -1);
 
     private final String fileName;

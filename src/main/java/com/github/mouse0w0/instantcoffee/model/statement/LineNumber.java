@@ -3,7 +3,7 @@ package com.github.mouse0w0.instantcoffee.model.statement;
 import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 
-public class LineNumber extends Statement {
+public final class LineNumber extends Statement {
     public IntegerLiteral line;
     public String label;
 

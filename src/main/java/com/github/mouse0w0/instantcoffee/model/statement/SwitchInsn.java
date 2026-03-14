@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 
 import java.util.List;
 
-public class SwitchInsn extends BaseInsn {
+public final class SwitchInsn extends BaseInsn {
     public List<SwitchCase> cases;
     public String dflt;
 

@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 
 import java.util.List;
 
-public class Modifier extends Located {
+public final class Modifier extends Located {
     public String keyword;
 
     public Modifier(Location location, String keyword) {

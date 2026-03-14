@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class ReferenceType extends Located implements Type, TypeArgument {
+public final class ReferenceType extends Located implements Type, TypeArgument {
     public List<String> identifiers;
     public List<TypeArgument> typeArguments;
 

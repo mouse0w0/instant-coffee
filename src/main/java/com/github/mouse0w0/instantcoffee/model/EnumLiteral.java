@@ -2,7 +2,7 @@ package com.github.mouse0w0.instantcoffee.model;
 
 import com.github.mouse0w0.instantcoffee.Location;
 
-public class EnumLiteral extends Located implements AnnotationValue {
+public final class EnumLiteral extends Located implements AnnotationValue {
     public ReferenceType owner;
     public String name;
 

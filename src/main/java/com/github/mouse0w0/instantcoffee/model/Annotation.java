@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class Annotation extends Located implements AnnotationValue {
+public final class Annotation extends Located implements AnnotationValue {
     public ReferenceType type;
     public List<AnnotationValuePair> pairs;
     public boolean visible;

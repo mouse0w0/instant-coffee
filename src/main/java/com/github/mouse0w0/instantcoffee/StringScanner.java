@@ -1,6 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
-public class StringScanner {
+final class StringScanner {
     public static final char EOS = '\0';
 
     private final String string;

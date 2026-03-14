@@ -5,7 +5,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FieldDeclaration extends Located {
+public final class FieldDeclaration extends Located {
     public List<Annotation> annotations;
     public List<Modifier> modifiers;
     public Type type;

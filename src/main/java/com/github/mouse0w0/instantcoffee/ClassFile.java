@@ -1,6 +1,6 @@
 package com.github.mouse0w0.instantcoffee;
 
-public class ClassFile {
+public final class ClassFile {
     private final String className;
     private final String classQualifiedName;
     private final String classInternalName;

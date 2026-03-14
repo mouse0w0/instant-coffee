@@ -4,7 +4,7 @@ import com.github.mouse0w0.instantcoffee.Location;
 import com.github.mouse0w0.instantcoffee.model.IntegerLiteral;
 import com.github.mouse0w0.instantcoffee.model.Type;
 
-public class LocalVariable extends Statement {
+public final class LocalVariable extends Statement {
     public String name;
     public Type type;
     public String start;
