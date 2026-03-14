@@ -175,7 +175,7 @@ public class TokenStream {
 
         StringBuffer sb = new StringBuffer().append("\"").append(a[0]).append("\"");
         for (int i = 1; i < a.length; i++) {
-            sb.append(delimiter).append("\"").append(a[1]).append("\"");
+            sb.append(delimiter).append("\"").append(a[i]).append("\"");
         }
         return sb.toString();
     }
