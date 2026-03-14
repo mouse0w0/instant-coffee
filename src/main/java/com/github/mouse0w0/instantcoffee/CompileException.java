@@ -4,12 +4,12 @@ public final class CompileException extends RuntimeException {
     private final Location location;
 
     public CompileException(String message, Location location) {
-        super(message + "\nLocation: " + location);
+        super(message + "\nLocation: " + (location != null ? location : "<unknown>"));
         this.location = location;
     }
 
     public CompileException(String message, Location location, Throwable cause) {
-        super(message + "\nLocation: " + location, cause);
+        super(message + "\nLocation: " + (location != null ? location : "<unknown>"), cause);
         this.location = location;
     }
 

@@ -1,7 +1,7 @@
 package com.github.mouse0w0.instantcoffee;
 
 public final class Location {
-    public static final Location UNKNOWN = new Location("<unknown>", -1, -1);
+    public static final Location UNKNOWN = null;
 
     private final String fileName;
     private final int line;
