@@ -1,4 +1,4 @@
 package com.github.mouse0w0.instantcoffee.model;
 
-public interface TypeArgument {
+public interface TypeArgument extends Locatable {
 }
