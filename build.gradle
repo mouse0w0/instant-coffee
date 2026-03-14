@@ -36,12 +36,12 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.ow2.asm:asm:9.9'
-    implementation 'org.ow2.asm:asm-commons:9.9'
-    implementation 'org.ow2.asm:asm-util:9.9'
+    implementation 'org.ow2.asm:asm:9.9.1'
 
+    cliImplementation 'org.ow2.asm:asm-util:9.9.1'
     cliImplementation 'net.sf.jopt-simple:jopt-simple:5.0.4'
 
+    testImplementation 'org.ow2.asm:asm-util:9.9.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.14.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.14.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.14.0'
