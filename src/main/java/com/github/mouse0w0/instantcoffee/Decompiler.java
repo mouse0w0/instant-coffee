@@ -610,9 +610,7 @@ public class Decompiler {
 
         @Override
         public void visitPermittedSubclass(String permittedSubclass) {
-            if (isFailOnUnsupportedFeature()) {
-                throw new UnsupportedOperationException("permitted subclass");
-            }
+            cd.permittedSubclasses.add(parseInternal(permittedSubclass));
         }
 
         @Override

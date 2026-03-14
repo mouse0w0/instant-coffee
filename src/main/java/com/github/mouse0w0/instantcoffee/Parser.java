@@ -136,6 +136,11 @@ public class Parser {
             return;
         }
 
+        if (peekRead("permits")) {
+            cd.permittedSubclasses.add(parseReferenceType());
+            return;
+        }
+
         List<Annotation> annotations = parseAnnotations();
         List<Modifier> modifiers = parseModifiers();
         if (peek("innerclass") || peek("local") || peek("anonymous")) {

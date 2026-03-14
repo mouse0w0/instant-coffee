@@ -36,6 +36,7 @@ public class Compiler {
         compileSource(cd.source, cv);
         compileNestHost(cd.nestHost, cv);
         compileNestMembers(cd.nestMembers, cv);
+        compilePermittedSubclasses(cd.permittedSubclasses, cv);
         compileAnnotations(cd.annotations, cv);
         compileInnerClasses(cd.innerClasses, cv);
         compileFields(cd.fields, cv, cc);
@@ -348,6 +349,13 @@ public class Compiler {
         if (nestMembers.isEmpty()) return;
         for (ReferenceType nestMember : nestMembers) {
             cv.visitNestMember(getInternalName2(nestMember));
+        }
+    }
+
+    private void compilePermittedSubclasses(List<ReferenceType> permittedSubclasses, ClassVisitor cv) {
+        if (permittedSubclasses.isEmpty()) return;
+        for (ReferenceType permittedSubclass : permittedSubclasses) {
+            cv.visitPermittedSubclass(getInternalName2(permittedSubclass));
         }
     }
 

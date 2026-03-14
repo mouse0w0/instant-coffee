@@ -95,6 +95,9 @@ public class Unparser {
         for (ReferenceType nestMember : cd.nestMembers) {
             unparseNestMember(nestMember, pw);
         }
+        for (ReferenceType permittedSubclass : cd.permittedSubclasses) {
+            unparsePermittedSubclass(permittedSubclass, pw);
+        }
         for (InnerClassDeclaration innerClass : cd.innerClasses) {
             unparseInnerClass(innerClass, pw);
         }
@@ -229,6 +232,12 @@ public class Unparser {
     private void unparseNestMember(ReferenceType nestMember, PrintWriter pw) {
         pw.println();
         appendIndent(pw).append("nestmember ").append(nestMember.toString());
+        pw.println();
+    }
+
+    private void unparsePermittedSubclass(ReferenceType permittedSubclass, PrintWriter pw) {
+        pw.println();
+        appendIndent(pw).append("permits ").append(permittedSubclass.toString());
         pw.println();
     }
 
