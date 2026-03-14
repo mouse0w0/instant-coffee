@@ -193,7 +193,7 @@ public class Parser {
                     typeParameters,
                     returnType,
                     name,
-                    hasModifier(cd.modifiers, "@interface")));
+                    Modifier.hasModifier(cd.modifiers, "@interface")));
             return;
         }
 
@@ -233,7 +233,7 @@ public class Parser {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 null,
-                parseMethodBody(hasModifier(modifiers, "abstract", "native"))
+                parseMethodBody(Modifier.hasModifier(modifiers, "abstract", "native"))
         );
     }
 
@@ -248,7 +248,7 @@ public class Parser {
                 parseMethodParameterTypes(),
                 parseMethodExceptionTypes(),
                 allowDefaultClause && peekRead("default") ? parseAnnotationValue() : null,
-                parseMethodBody(hasModifier(modifiers, "abstract", "native"))
+                parseMethodBody(Modifier.hasModifier(modifiers, "abstract", "native"))
         );
     }
 
@@ -945,26 +945,6 @@ public class Parser {
         } while (peekRead(","));
         read("}");
         return arguments;
-    }
-
-    private static boolean hasModifier(List<Modifier> modifiers, String keyword) {
-        for (Modifier modifier : modifiers) {
-            if (modifier.keyword.equals(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasModifier(List<Modifier> modifiers, String... keywords) {
-        for (Modifier modifier : modifiers) {
-            for (String keyword : keywords) {
-                if (modifier.keyword.equals(keyword)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private Location location() {

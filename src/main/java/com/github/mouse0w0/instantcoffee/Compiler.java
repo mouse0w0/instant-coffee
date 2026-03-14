@@ -148,15 +148,12 @@ public class Compiler {
 
     private String getClassSignature(ClassDeclaration cd, ClassContext cc) {
         StringBuilder sb = new StringBuilder();
-
         buildTypeParameters(cd.typeParameters, cc, sb);
-
         if (cd.superclass != null) {
             sb.append(getTypeSignature2(cd.superclass, cc));
         } else {
             sb.append("Ljava/lang/Object;");
         }
-
         for (ReferenceType inte : cd.interfaces) {
             sb.append(getTypeSignature2(inte, cc));
         }
@@ -179,23 +176,22 @@ public class Compiler {
         return false;
     }
 
-    private String getMethodSignature(MethodDeclaration md, MethodContext mc) {
+    private String getMethodSignature(List<TypeParameter> typeParameters,
+                                      List<Type> parameterTypes,
+                                      Type returnType,
+                                      List<ReferenceType> exceptionTypes,
+                                      MethodContext mc) {
         StringBuilder sb = new StringBuilder();
-
-        buildTypeParameters(md.typeParameters, mc, sb);
-
+        buildTypeParameters(typeParameters, mc, sb);
         sb.append("(");
-        for (Type parameterType : md.parameterTypes) {
+        for (Type parameterType : parameterTypes) {
             sb.append(getTypeSignature(parameterType, mc));
         }
         sb.append(")");
-
-        sb.append(getTypeSignature(md.returnType, mc));
-
-        for (ReferenceType exceptionType : md.exceptionTypes) {
+        sb.append(getTypeSignature(returnType, mc));
+        for (ReferenceType exceptionType : exceptionTypes) {
             sb.append("^").append(getTypeSignature(exceptionType, mc));
         }
-
         return sb.toString();
     }
 
@@ -468,7 +464,26 @@ public class Compiler {
         int access = getMethodAccess(method.modifiers);
         String name = method.name;
         String descriptor = getMethodDescriptor(method.parameterTypes, method.returnType, mc);
-        String signature = needMethodSignature(method, mc) ? getMethodSignature(method, mc) : null;
+        String signature;
+        if (cc.isEnum() && "<init>".equals(method.name)) {
+            List<Type> parameterTypes = method.parameterTypes;
+            if (parameterTypes.size() < 2) {
+                throw new CompileException("Enum constructor must have at least two parameters", method.getLocation());
+            }
+            Type parameter0 = parameterTypes.get(0);
+            if (!(parameter0 instanceof ReferenceType && ReferenceType.isJavaLangString((ReferenceType) parameter0))) {
+                throw new CompileException("Enum constructor must have first parameter of type java.lang.String", parameter0.getLocation());
+            }
+            Type parameter1 = parameterTypes.get(1);
+            if (!(parameter1 instanceof PrimitiveType && ((PrimitiveType) parameter1).primitive == Primitive.INT)) {
+                throw new CompileException("Enum constructor must have second parameter of type int", parameter1.getLocation());
+            }
+            signature = getMethodSignature(method.typeParameters, parameterTypes.subList(2, parameterTypes.size()), method.returnType, method.exceptionTypes, mc);
+        } else if (needMethodSignature(method, mc)) {
+            signature = getMethodSignature(method.typeParameters, method.parameterTypes, method.returnType, method.exceptionTypes, mc);
+        } else {
+            signature = null;
+        }
         String[] exceptions = getMethodExceptions(method.exceptionTypes);
 
         MethodVisitor mv = cv.visitMethod(access, name, descriptor, signature, exceptions);

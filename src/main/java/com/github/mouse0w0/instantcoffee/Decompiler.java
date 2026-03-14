@@ -517,6 +517,8 @@ public class Decompiler {
     private class MyClassVisitor extends ClassVisitor {
         private final ClassDeclaration cd = new ClassDeclaration(Location.UNKNOWN);
 
+        private boolean isEnum;
+
         public MyClassVisitor() {
             super(Opcodes.ASM9);
         }
@@ -534,6 +536,7 @@ public class Decompiler {
             } else {
                 parseClassSignature(signature, cd);
             }
+            isEnum = (access & Opcodes.ACC_ENUM) != 0;
         }
 
         private void parseClassSignature(String signature, ClassDeclaration cd) {
@@ -652,7 +655,7 @@ public class Decompiler {
             MethodDeclaration md = new MethodDeclaration(Location.UNKNOWN);
             md.modifiers = parseMethodModifiers(access);
             md.name = name;
-            if (signature == null) {
+            if (signature == null || (isEnum && "<init>".equals(name))) {
                 md.parameterTypes = parseParameterTypes(descriptor);
                 md.returnType = parseReturnType(descriptor);
                 if (exceptions != null) {
