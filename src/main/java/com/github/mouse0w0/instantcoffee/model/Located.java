@@ -3,7 +3,9 @@ package com.github.mouse0w0.instantcoffee.model;
 import com.github.mouse0w0.instantcoffee.Location;
 
 public class Located implements Locatable {
-    private final Location location;
+    private Location location;
+
+    public Located() {}
 
     public Located(Location location) {
         this.location = location;
@@ -12,5 +14,10 @@ public class Located implements Locatable {
     @Override
     public Location getLocation() {
         return location;
+    }
+
+    @Override
+    public void setLocation(Location location) {
+        this.location = location;
     }
 }
